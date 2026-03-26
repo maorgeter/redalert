@@ -49,22 +49,32 @@ ENV NODE_ENV=production
 ENV PORT=3000
 
 # Copy the entire standalone directory.
-# Because outputFileTracingRoot = monorepo root, server.js lands at /app/server.js
-# and the app's chunks are at /app/packages/frontend/
+# outputFileTracingRoot = monorepo root (/build) means Next.js mirrors the full
+# monorepo path inside standalone.  The actual layout after the COPY is:
+#
+#   /app/
+#   ├── node_modules/               ← traced workspace deps (from /build/node_modules)
+#   └── packages/frontend/
+#       ├── server.js               ← entry point (app-relative path, NOT root)
+#       └── .next/server/           ← compiled server chunks
+#
 COPY --from=builder /build/packages/frontend/.next/standalone ./
 
-# Static assets: Next.js serves /_next/static from the app's .next/static dir,
-# which relative to the standalone root is packages/frontend/.next/static
+# Static assets go where server.js's process.chdir(__dirname) will look:
+# __dirname = /app/packages/frontend → expects .next/static there
 COPY --from=builder /build/packages/frontend/.next/static \
      ./packages/frontend/.next/static
 
-# Public assets: same monorepo-relative path within standalone
-# (mkdir ensures this works even if the public dir is empty / doesn't exist)
+# Public assets — same relative location
 RUN mkdir -p ./packages/frontend/public
 COPY --from=builder /build/packages/frontend/public \
      ./packages/frontend/public
 
 EXPOSE 3000
 
-# server.js is at /app/server.js — run it directly from WORKDIR /app
-CMD ["node", "server.js"]
+# server.js lives at packages/frontend/server.js (monorepo-mirrored path).
+# On failure the shell prints a directory listing so the next debug is easy.
+CMD ["sh", "-c", \
+  "node packages/frontend/server.js || \
+   (echo '--- /app layout (no node_modules) ---' && \
+    find /app -maxdepth 4 ! -path '*/node_modules/*' && exit 1)"]
