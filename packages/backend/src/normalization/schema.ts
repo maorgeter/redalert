@@ -42,6 +42,7 @@ export enum AlertCategory {
   TSUNAMI = 'tsunami',
   CHEMICAL = 'chemical',
   EVENT_ENDED = 'event_ended',
+  PRE_ALERT = 'pre_alert',
   UNKNOWN = 'unknown',
 }
 
@@ -118,7 +119,7 @@ export const OREF_CATEGORY_MAP: Record<number, AlertCategory> = {
   6: AlertCategory.HOSTILE_AIRCRAFT, // כלי טיס עוין
   7: AlertCategory.INFILTRATION,    // חדירת מחבלים
   13: AlertCategory.EVENT_ENDED,       // האירוע הסתיים
-  14: AlertCategory.UNKNOWN,           // צפויות התרעות (pre-alert)
+  14: AlertCategory.PRE_ALERT,         // בדקות הקרובות צפויות להתקבל התרעות (pre-alert)
   101: AlertCategory.CHEMICAL,      // אירוע כימי
 }
 
@@ -132,6 +133,7 @@ export const CATEGORY_SEVERITY: Record<AlertCategory, AlertSeverity> = {
   [AlertCategory.TSUNAMI]: AlertSeverity.CRITICAL,
   [AlertCategory.CHEMICAL]: AlertSeverity.HIGH,
   [AlertCategory.EVENT_ENDED]: AlertSeverity.LOW,
+  [AlertCategory.PRE_ALERT]: AlertSeverity.MEDIUM,
   [AlertCategory.UNKNOWN]: AlertSeverity.MEDIUM,
 }
 
@@ -146,6 +148,7 @@ export const CATEGORY_ALERT_TYPE: Record<AlertCategory, AlertType> = {
   [AlertCategory.TSUNAMI]: AlertType.WARNING,
   [AlertCategory.CHEMICAL]: AlertType.WARNING,
   [AlertCategory.EVENT_ENDED]: AlertType.ALL_CLEAR,
+  [AlertCategory.PRE_ALERT]: AlertType.WARNING,
   [AlertCategory.UNKNOWN]: AlertType.WARNING,
 }
 

@@ -24,27 +24,27 @@ const MOCK_SCENARIOS: Array<{ areas: string[]; category: AlertCategory }[]> = [
     { areas: ['Kiryat Gat', 'Kiryat Malachi'],         category: AlertCategory.ROCKETS },
     { areas: ['Rishon LeZion - South', 'Holon'],       category: AlertCategory.ROCKETS },
     { areas: ['Tel Aviv - Yafo'],                       category: AlertCategory.ROCKETS },
-    { areas: ['האירוע הסתיים'],                         category: AlertCategory.EVENT_ENDED },
+    { areas: ['Sderot', 'Kibbutz Nir Am', 'Ashkelon - South', 'Ashkelon - North', 'Ashdod - Center', 'Kiryat Gat', 'Rishon LeZion - South', 'Holon', 'Tel Aviv - Yafo'], category: AlertCategory.EVENT_ENDED },
   ],
   // Scenario B: Northern hostile aircraft → event ended
   [
     { areas: ['Kiryat Shmona', 'Metula'],      category: AlertCategory.HOSTILE_AIRCRAFT },
     { areas: ['Nahariya', 'Akko'],             category: AlertCategory.HOSTILE_AIRCRAFT },
     { areas: ['Haifa - East', 'Haifa - Center'], category: AlertCategory.HOSTILE_AIRCRAFT },
-    { areas: ['האירוע הסתיים'],                  category: AlertCategory.EVENT_ENDED },
+    { areas: ['Kiryat Shmona', 'Metula', 'Nahariya', 'Akko', 'Haifa - East', 'Haifa - Center'], category: AlertCategory.EVENT_ENDED },
   ],
   // Scenario C: Central rockets + hostile aircraft → event ended
   [
     { areas: ['Jerusalem - Center', 'Jerusalem - North'], category: AlertCategory.ROCKETS },
     { areas: ["Beit Shemesh", "Modi'in"],                category: AlertCategory.ROCKETS },
     { areas: ['Tel Aviv - Yafo', 'Ramat Gan'],           category: AlertCategory.HOSTILE_AIRCRAFT },
-    { areas: ['האירוע הסתיים'],                           category: AlertCategory.EVENT_ENDED },
+    { areas: ['Jerusalem - Center', 'Jerusalem - North', "Beit Shemesh", "Modi'in", 'Tel Aviv - Yafo', 'Ramat Gan'], category: AlertCategory.EVENT_ENDED },
   ],
   // Scenario D: Southern rockets → event ended
   [
     { areas: ['Beer Sheba - Center', 'Beer Sheba - North'], category: AlertCategory.ROCKETS },
     { areas: ['Kiryat Gat', 'Kiryat Malachi'],              category: AlertCategory.ROCKETS },
-    { areas: ['האירוע הסתיים'],                              category: AlertCategory.EVENT_ENDED },
+    { areas: ['Beer Sheba - Center', 'Beer Sheba - North', 'Kiryat Gat', 'Kiryat Malachi'], category: AlertCategory.EVENT_ENDED },
   ],
 ]
 

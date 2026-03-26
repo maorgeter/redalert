@@ -10,7 +10,7 @@ import {
   CATEGORY_HE,
   SOURCE_HE,
 } from '@/types'
-import { BellOff, Wifi, WifiOff, Siren, AlertTriangle, CheckCircle2, ShieldCheck } from 'lucide-react'
+import { BellOff, Wifi, WifiOff, Siren, AlertTriangle, CheckCircle2, ShieldCheck, Clock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 // ─── Alert type visual config ─────────────────────────────────────────────────
@@ -48,7 +48,7 @@ const TYPE_CONFIG = {
   },
 } as const
 
-// Special visual config for EVENT_ENDED (cat 4) — blue/navy HFC look
+// Special visual config for EVENT_ENDED (cat 4/13) — blue/navy HFC look
 const EVENT_ENDED_CONFIG = {
   label: 'האירוע הסתיים',
   borderClass: 'border-r-2 border-blue-500',
@@ -58,6 +58,18 @@ const EVENT_ENDED_CONFIG = {
   bgClass: 'bg-blue-50/30',
   Icon: ShieldCheck,
   iconClass: 'text-blue-600',
+}
+
+// Special visual config for PRE_ALERT (cat 14) — amber/yellow early-warning look
+const PRE_ALERT_CONFIG = {
+  label: 'צפויות התרעות בקרוב',
+  borderClass: 'border-r-2 border-amber-400',
+  dotClass: 'bg-amber-400 animate-pulse',
+  textClass: 'text-amber-800',
+  badgeClass: 'bg-amber-100 text-amber-800 border border-amber-200',
+  bgClass: 'bg-amber-50/30',
+  Icon: Clock,
+  iconClass: 'text-amber-500',
 }
 
 type TypeFilter = 'all' | AlertType
@@ -80,17 +92,27 @@ const FILTER_TABS: FilterTab[] = [
 function hebrewRelativeTime(isoString: string): string {
   const diffMs = Date.now() - new Date(isoString).getTime()
   const secs = Math.floor(diffMs / 1000)
-  if (secs < 60) return `לפני ${secs} שניות`
+  if (secs < 60) {
+    if (secs === 1) return 'לפני שנייה אחת'
+    if (secs === 2) return 'לפני שתי שניות'
+    return `לפני ${secs} שניות`
+  }
   const mins = Math.floor(secs / 60)
-  if (mins < 60) return `לפני ${mins} דקות`
+  if (mins < 60) {
+    if (mins === 1) return 'לפני דקה אחת'
+    if (mins === 2) return 'לפני שתי דקות'
+    return `לפני ${mins} דקות`
+  }
   const hours = Math.floor(mins / 60)
+  if (hours === 1) return 'לפני שעה אחת'
+  if (hours === 2) return 'לפני שעתיים'
   return `לפני ${hours} שעות`
 }
 
 interface Props { compact?: boolean }
 
 export default function EventFeed({ compact }: Props) {
-  const { events, activeEvents, wsConnected, lastEventReceivedAt, activeRedAlerts, activeWarnings, geofences } =
+  const { events, activeEvents, wsConnected, lastEventReceivedAt, activeRedAlerts, activeWarnings, activeCleareds, geofences } =
     useAlertStore()
   const { adapterStatuses } = useSystemStore()
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all')
@@ -139,7 +161,7 @@ export default function EventFeed({ compact }: Props) {
     all: activeEvents.length,
     [AlertType.RED_ALERT]: activeRedAlerts,
     [AlertType.WARNING]: activeWarnings,
-    [AlertType.ALL_CLEAR]: 0,
+    [AlertType.ALL_CLEAR]: activeCleareds,
   }
 
   return (
@@ -208,7 +230,8 @@ export default function EventFeed({ compact }: Props) {
             {displayEvents.map((event) => {
               const alertType = event.alertType ?? AlertType.WARNING
               const isEventEnded = event.category === AlertCategory.EVENT_ENDED
-              const cfg = isEventEnded ? EVENT_ENDED_CONFIG : TYPE_CONFIG[alertType]
+              const isPreAlert = event.category === AlertCategory.PRE_ALERT
+              const cfg = isEventEnded ? EVENT_ENDED_CONFIG : isPreAlert ? PRE_ALERT_CONFIG : TYPE_CONFIG[alertType]
               const TypeIcon = cfg.Icon
               const isActive = event.status === AlertStatus.ACTIVE
               const sourceLabel = SOURCE_HE[event.source] ?? event.source

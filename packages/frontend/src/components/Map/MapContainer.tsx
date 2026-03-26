@@ -393,6 +393,7 @@ export default function MapContainer() {
       'red_alert', COLORS.redAlertBorder,
       'warning',   COLORS.warningBorder,
       'all_clear', COLORS.allClearBorder,
+      'pre_alert', '#d97706',
       COLORS.redAlertBorder,
     ]
     const glowColor: maplibregl.ExpressionSpecification = [
@@ -400,6 +401,7 @@ export default function MapContainer() {
       'red_alert', COLORS.redAlert,
       'warning',   COLORS.warning,
       'all_clear', COLORS.allClear,
+      'pre_alert', '#f59e0b',
       COLORS.redAlert,
     ]
     const haloColor: maplibregl.ExpressionSpecification = [

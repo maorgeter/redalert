@@ -23,6 +23,7 @@ export enum AlertCategory {
   TSUNAMI = 'tsunami',
   CHEMICAL = 'chemical',
   EVENT_ENDED = 'event_ended',
+  PRE_ALERT = 'pre_alert',
   UNKNOWN = 'unknown',
 }
 
@@ -146,6 +147,7 @@ export const CATEGORY_HE: Record<AlertCategory, string> = {
   [AlertCategory.TSUNAMI]: 'צונאמי',
   [AlertCategory.CHEMICAL]: 'אירוע כימי',
   [AlertCategory.EVENT_ENDED]: 'האירוע הסתיים',
+  [AlertCategory.PRE_ALERT]: 'צפויות התרעות בקרוב',
   [AlertCategory.UNKNOWN]: 'לא ידוע',
 }
 
