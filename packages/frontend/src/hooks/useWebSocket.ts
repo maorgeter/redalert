@@ -16,15 +16,18 @@ export function useWebSocket(): void {
     const offMessage = ws.onMessage((msg: ServerMessage) => {
       switch (msg.type) {
         case 'init':
+          console.log('[WS] init received — events:', msg.data.events.length, 'geofences:', (msg.data.geofences as GeofenceFC).features?.length ?? 0)
           bulkSetEvents(msg.data.events)
           setZones(msg.data.zones)
           setGeofences(msg.data.geofences as GeofenceFC)
           markInitReceived()
           break
         case 'event':
+          console.log('[WS] event received:', msg.data.areaName, '| status:', msg.data.status, '| geofenceId:', msg.data.geofenceId)
           addEvent(msg.data)
           break
         case 'event:expired':
+          console.log('[WS] event:expired:', msg.data.areaName)
           expireEvent(msg.data)
           break
         case 'zones_update':

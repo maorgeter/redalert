@@ -210,6 +210,7 @@ export default function MapContainer() {
   const rippleClearRef     = useRef(false) // flag: clear ripple source next frame
   const flashTimeRef       = useRef<number | null>(null)
   const fadingStartRef     = useRef<number | null>(null)
+  const hebrewDebounceRef  = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Keep current store values accessible inside RAF without stale closures
   const geofencesRef = useRef(useAlertStore.getState().geofences)
@@ -256,16 +257,21 @@ export default function MapContainer() {
     })
 
     // Re-apply Hebrew labels whenever the style is updated (tile loads, style swap).
-    // 'styledata' fires for every style change; the isStyleLoaded() guard prevents
-    // running before layers exist, and the inner try/catch makes each layer safe.
+    // Debounced 150 ms — 'styledata' can fire dozens of times per second during
+    // tile loads; coalescing avoids redundant setLayoutProperty calls.
     map.current.on('styledata', () => {
       const m = map.current
       if (!m || !m.isStyleLoaded()) return
-      applyHebrewLabels(m)
+      if (hebrewDebounceRef.current) clearTimeout(hebrewDebounceRef.current)
+      hebrewDebounceRef.current = setTimeout(() => {
+        hebrewDebounceRef.current = null
+        if (map.current?.isStyleLoaded()) applyHebrewLabels(map.current)
+      }, 150)
     })
 
     return () => {
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current)
+      if (hebrewDebounceRef.current) clearTimeout(hebrewDebounceRef.current)
       map.current?.remove()
       map.current = null
     }
@@ -384,12 +390,16 @@ export default function MapContainer() {
       COLORS.redAlertBorder,
     ]
 
-    // Active alert soft glow — wide, semi-transparent fill; opacity pulsed by RAF loop.
-    // fill-blur is NOT a valid MapLibre paint property (removed to fix console error).
-    m.addLayer({ id: 'active-alerts-glow', type: 'fill', source: 'active-alerts',
+    // Active alert soft glow — circle layer on centroid points with circle-blur.
+    // Must use a point source; fill layers don't support blur in MapLibre GL.
+    // heatmap-points already contains one point per active alert centroid.
+    m.addLayer({ id: 'active-alerts-glow', type: 'circle', source: 'heatmap-points',
       paint: {
-        'fill-color': alertFillColor,
-        'fill-opacity': 0.08,
+        'circle-color': COLORS.redAlert,
+        'circle-radius': 80,
+        'circle-blur': 1.2,
+        'circle-opacity': 0.12,
+        'circle-pitch-alignment': 'map',
       } })
 
     // Active alert main fill (pulsing opacity via animation loop)
@@ -435,7 +445,7 @@ export default function MapContainer() {
       if (m.getLayer('active-alerts-fill'))
         m.setPaintProperty('active-alerts-fill', 'fill-opacity', Math.min(0.88, base + flashBoost))
       if (m.getLayer('active-alerts-glow'))
-        m.setPaintProperty('active-alerts-glow', 'fill-opacity',
+        m.setPaintProperty('active-alerts-glow', 'circle-opacity',
           Math.min(0.35, 0.08 + 0.05 * sin + flashBoost * 0.25))
 
       // Estimated zone pulse (slightly offset phase for organic feel)
@@ -592,14 +602,23 @@ export default function MapContainer() {
   const updateAlertSources = () => {
     const m = map.current
     const gf = geofencesRef.current
-    if (!m || !gf) return
+    if (!m || !gf) {
+      console.warn('[MapContainer] updateAlertSources: skipping — map ready:', !!m, 'geofences loaded:', !!gf)
+      return
+    }
+
+    const activeEvents = eventsRef.current.filter(e => e.status === AlertStatus.ACTIVE)
+    console.log('[MapContainer] updateAlertSources: active events:', activeEvents.length)
 
     const activeFeatures: GeoJSON.Feature[] = []
     const heatmapPoints: GeoJSON.Feature[] = []
 
-    for (const event of eventsRef.current.filter(e => e.status === AlertStatus.ACTIVE)) {
+    for (const event of activeEvents) {
       const feat = findGeofenceFeature(gf, event.areaName, event.geofenceId)
-      if (!feat) continue
+      if (!feat) {
+        console.warn('[MapContainer] no geofence match for:', event.areaName, '| geofenceId:', event.geofenceId)
+        continue
+      }
 
       activeFeatures.push({
         ...feat,
@@ -619,7 +638,7 @@ export default function MapContainer() {
       if (center) {
         heatmapPoints.push({
           type: 'Feature',
-          properties: { weight: Math.min(1, (event.provenance?.length ?? 1) * 0.5) },
+          properties: { weight: Math.min(1, (event.provenance?.length ?? 1) * 0.5) || 0.5 },
           geometry: { type: 'Point', coordinates: center },
         })
       }
@@ -641,7 +660,7 @@ export default function MapContainer() {
         ...z.geometry,
         properties: {
           zoneId: z.id,
-          confidence: z.confidence,
+          confidence: z.confidence ?? 0,
           affectedAreas: z.affectedAreas.join('، '),
           method: z.explanation.method,
         },
