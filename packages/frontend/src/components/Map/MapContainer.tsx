@@ -103,6 +103,21 @@ function polygonCentroid(
   } catch { return null }
 }
 
+// Haversine great-circle distance in km between two [lng, lat] points
+function haversineKm(a: [number, number], b: [number, number]): number {
+  const R = 6371
+  const dLat = (b[1] - a[1]) * Math.PI / 180
+  const dLng = (b[0] - a[0]) * Math.PI / 180
+  const sinH = Math.sin(dLat / 2) ** 2 +
+    Math.cos(a[1] * Math.PI / 180) * Math.cos(b[1] * Math.PI / 180) *
+    Math.sin(dLng / 2) ** 2
+  return 2 * R * Math.asin(Math.sqrt(sinH))
+}
+
+// Maximum distance (km) for two alert nodes to be considered neighbours and
+// connected by a graph edge.  80 km covers same-region adjacency in Israel.
+const NEIGHBOR_KM = 80
+
 // ─── Hebrew label override ───────────────────────────────────────────────────
 // OpenFreeMap liberty ships a single glyph set named 'Noto Sans Regular' which
 // already contains the Hebrew Unicode block — 'Noto Sans Hebrew Regular' is NOT
@@ -146,11 +161,13 @@ function alertPopupHtml(props: Record<string, string>): string {
   const alertType = props.alertType ?? 'red_alert'
   const alertTypeLabel = ALERT_TYPE_HE[alertType as AlertType] ?? alertType
   const typeColor = alertTypeColor(alertType)
+  // Prefer Hebrew city name stored on the feature; fall back to raw areaName
+  const displayName = props.city_he || props.areaName || ''
 
   return `
     <div class="map-popup">
       <div class="popup-header">
-        <div class="popup-area-name">${props.areaName ?? ''}</div>
+        <div class="popup-area-name">${displayName}</div>
         <div class="popup-live-badge" style="color:${typeColor}">● ${alertTypeLabel}</div>
       </div>
       <div class="popup-body">
@@ -304,9 +321,12 @@ export default function MapContainer() {
     const pairs: [string, boolean][] = [
       ['geofences-fill',       layerVisibility.geofences],
       ['geofences-line',       layerVisibility.geofences],
+      ['alert-edges-glow',     layerVisibility.activeAlerts],
+      ['alert-edges-line',     layerVisibility.activeAlerts],
       ['active-alerts-glow',   layerVisibility.activeAlerts],
-      ['alert-labels',         layerVisibility.activeAlerts],
       ['active-alerts-line',   layerVisibility.activeAlerts],
+      ['alert-labels',         layerVisibility.activeAlerts],
+      ['alert-node-core',      layerVisibility.activeAlerts],
       ['fading-fill',          layerVisibility.activeAlerts],
       ['heatmap-layer',        layerVisibility.activeAlerts],
       ['estimated-zones-fill', layerVisibility.estimatedZones],
@@ -326,6 +346,7 @@ export default function MapContainer() {
     m.addSource('estimated-zones', { type: 'geojson', data: empty })
     m.addSource('uncertainty-zones', { type: 'geojson', data: empty })
     m.addSource('heatmap-points',  { type: 'geojson', data: empty })
+    m.addSource('alert-edges',     { type: 'geojson', data: empty })
     m.addSource('ripples',         { type: 'geojson', data: empty })
   }
 
@@ -397,8 +418,29 @@ export default function MapContainer() {
       '#7f1d1d',
     ]
 
-    // Pulsing glow circle at alert centroid — color matches alert type.
-    // Radius and opacity are animated each RAF frame.
+    // ── Graph edges ─────────────────────────────────────────────────────────
+    // Drawn below nodes so they appear "behind" the glowing circles.
+    // Two layers: a thick blur for the neon glow, then a crisp 1-px line.
+
+    // Outer glow of each edge
+    m.addLayer({ id: 'alert-edges-glow', type: 'line', source: 'alert-edges',
+      paint: {
+        'line-color': COLORS.redAlert,
+        'line-width': 8,
+        'line-blur': 4,
+        'line-opacity': 0.18,
+      } })
+
+    // Sharp centre line — thin, high contrast
+    m.addLayer({ id: 'alert-edges-line', type: 'line', source: 'alert-edges',
+      paint: {
+        'line-color': '#ff6b6b',
+        'line-width': 1,
+        'line-opacity': 0.55,
+      } })
+
+    // ── Node layers ──────────────────────────────────────────────────────────
+    // Large outer glow (pulsing radius/opacity in RAF)
     m.addLayer({ id: 'active-alerts-glow', type: 'circle', source: 'heatmap-points',
       paint: {
         'circle-color': glowColor,
@@ -408,9 +450,11 @@ export default function MapContainer() {
         'circle-pitch-alignment': 'map',
       } })
 
-    // Hebrew city name label at alert centroid.
-    // Replaces the solid fill polygon — instead the geofence border provides
-    // the geographic outline and the label gives immediate context.
+    // Active alert border — subtle geofence outline for geographic context
+    m.addLayer({ id: 'active-alerts-line', type: 'line', source: 'active-alerts',
+      paint: { 'line-color': alertBorderColor, 'line-width': 1.5, 'line-opacity': 0.6 } })
+
+    // Hebrew city name label at centroid (RTL via plugin)
     m.addLayer({
       id: 'alert-labels',
       type: 'symbol',
@@ -433,9 +477,18 @@ export default function MapContainer() {
       },
     })
 
-    // Active alert border — thin outline of the geofence polygon for context
-    m.addLayer({ id: 'active-alerts-line', type: 'line', source: 'active-alerts',
-      paint: { 'line-color': alertBorderColor, 'line-width': 2, 'line-opacity': 0.85 } })
+    // Small bright core circle — the "node" centre in the embedding aesthetic
+    m.addLayer({ id: 'alert-node-core', type: 'circle', source: 'heatmap-points',
+      paint: {
+        'circle-color': '#ffffff',
+        'circle-radius': 5,
+        'circle-blur': 0,
+        'circle-opacity': 0.95,
+        'circle-stroke-color': glowColor,
+        'circle-stroke-width': 2.5,
+        'circle-stroke-opacity': 1,
+        'circle-pitch-alignment': 'map',
+      } })
 
     // Ripple rings (line only for clean look)
     m.addLayer({ id: 'ripple-line', type: 'line', source: 'ripples',
@@ -467,13 +520,25 @@ export default function MapContainer() {
         }
       }
 
-      // Active alert pulse — glow circle + label text breathe in sync
+      // Active alert pulse — all node layers breathe together
       if (m.getLayer('active-alerts-glow'))
         m.setPaintProperty('active-alerts-glow', 'circle-opacity',
           Math.min(0.55, 0.15 + 0.10 * sin + flashBoost * 0.40))
       if (m.getLayer('alert-labels'))
         m.setPaintProperty('alert-labels', 'text-opacity',
           Math.min(1.0, 0.78 + 0.22 * Math.abs(sin) + flashBoost * 0.22))
+      if (m.getLayer('alert-node-core'))
+        m.setPaintProperty('alert-node-core', 'circle-opacity',
+          Math.min(1.0, 0.85 + 0.15 * Math.abs(sin) + flashBoost * 0.15))
+
+      // Graph edges pulse at a slower, offset phase — creates a "data-flow" feel
+      const edgeSin = Math.sin(pulsePhaseRef.current * 0.65 + 1.3)
+      if (m.getLayer('alert-edges-glow'))
+        m.setPaintProperty('alert-edges-glow', 'line-opacity',
+          Math.min(0.38, 0.12 + 0.09 * edgeSin + flashBoost * 0.28))
+      if (m.getLayer('alert-edges-line'))
+        m.setPaintProperty('alert-edges-line', 'line-opacity',
+          Math.min(0.90, 0.42 + 0.28 * edgeSin + flashBoost * 0.30))
 
       // Estimated zone pulse (slightly offset phase for organic feel)
       if (m.getLayer('estimated-zones-fill'))
@@ -647,12 +712,14 @@ export default function MapContainer() {
         continue
       }
 
+      const fProps = feat.properties as Record<string, string> | null
       activeFeatures.push({
         ...feat,
         properties: {
           ...feat.properties,
           eventId: event.id,
           areaName: event.areaName,
+          city_he: fProps?.nameHe ?? event.areaName,
           severity: event.severity,
           category: event.category,
           alertType: event.alertType ?? AlertType.RED_ALERT,
@@ -677,10 +744,30 @@ export default function MapContainer() {
       }
     }
 
+    // ── Graph edges: connect nearby alert nodes ─────────────────────────────
+    // O(n²) over active alerts — fine for typical counts (<30 simultaneous).
+    const edgeFeatures: GeoJSON.Feature[] = []
+    for (let i = 0; i < heatmapPoints.length; i++) {
+      for (let j = i + 1; j < heatmapPoints.length; j++) {
+        const a = (heatmapPoints[i].geometry as GeoJSON.Point).coordinates as [number, number]
+        const b = (heatmapPoints[j].geometry as GeoJSON.Point).coordinates as [number, number]
+        const dist = haversineKm(a, b)
+        if (dist <= NEIGHBOR_KM) {
+          edgeFeatures.push({
+            type: 'Feature',
+            properties: { distKm: Math.round(dist) },
+            geometry: { type: 'LineString', coordinates: [a, b] },
+          })
+        }
+      }
+    }
+
     ;(m.getSource('active-alerts') as maplibregl.GeoJSONSource | undefined)
       ?.setData({ type: 'FeatureCollection', features: activeFeatures })
     ;(m.getSource('heatmap-points') as maplibregl.GeoJSONSource | undefined)
       ?.setData({ type: 'FeatureCollection', features: heatmapPoints })
+    ;(m.getSource('alert-edges') as maplibregl.GeoJSONSource | undefined)
+      ?.setData({ type: 'FeatureCollection', features: edgeFeatures })
   }
 
   const updateZonesSources = () => {
@@ -712,24 +799,33 @@ export default function MapContainer() {
   const setupInteractions = () => {
     const m = map.current!
 
-    // Active alert hover
-    m.on('mouseenter', 'active-alerts-fill', (e) => {
+    // Active alert hover / click — on the polygon border and on the label node
+    const showAlertPopup = (e: maplibregl.MapMouseEvent & { features?: maplibregl.MapGeoJSONFeature[] }) => {
       m.getCanvas().style.cursor = 'pointer'
       const p = e.features?.[0]?.properties as Record<string, string> | undefined
       if (p && popup.current) {
-        // Ensure alertType is passed through for popup styling
-        const props = { ...p, alertType: p.alertType ?? 'red_alert' }
-        popup.current.setLngLat(e.lngLat).setHTML(alertPopupHtml(props)).addTo(m)
+        popup.current.setLngLat(e.lngLat)
+          .setHTML(alertPopupHtml({ ...p, alertType: p.alertType ?? 'red_alert' }))
+          .addTo(m)
       }
-    })
-    m.on('mouseleave', 'active-alerts-fill', () => {
+    }
+    const hideAlertPopup = () => {
       m.getCanvas().style.cursor = ''
       popup.current?.remove()
-    })
-    m.on('click', 'active-alerts-fill', (e) => {
+    }
+    const clickAlert = (e: maplibregl.MapMouseEvent & { features?: maplibregl.MapGeoJSONFeature[] }) => {
       const p = e.features?.[0]?.properties
       if (p?.eventId) { selectGeofence(p.eventId); setInspectorOpen(true) }
-    })
+    }
+
+    m.on('mouseenter', 'active-alerts-line', showAlertPopup)
+    m.on('mouseleave', 'active-alerts-line', hideAlertPopup)
+    m.on('click',      'active-alerts-line', clickAlert)
+
+    // Also respond to clicks directly on the label node
+    m.on('mouseenter', 'alert-node-core', showAlertPopup)
+    m.on('mouseleave', 'alert-node-core', hideAlertPopup)
+    m.on('click',      'alert-node-core', clickAlert)
 
     // Estimated zone hover
     m.on('mouseenter', 'estimated-zones-fill', (e) => {

@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useAlertStore } from '@/store/alertStore'
 import { useSystemStore } from '@/store/systemStore'
 import {
@@ -77,11 +77,26 @@ function hebrewRelativeTime(isoString: string): string {
 interface Props { compact?: boolean }
 
 export default function EventFeed({ compact }: Props) {
-  const { events, activeEvents, wsConnected, lastEventReceivedAt, activeRedAlerts, activeWarnings } =
+  const { events, activeEvents, wsConnected, lastEventReceivedAt, activeRedAlerts, activeWarnings, geofences } =
     useAlertStore()
   const { adapterStatuses } = useSystemStore()
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all')
   const [, forceRender] = useState(0)
+
+  // Build a lowercase-name → Hebrew-name lookup from loaded geofences.
+  // Used to display city names in Hebrew even for English mock-data events.
+  const heNameMap = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const f of geofences?.features ?? []) {
+      const name   = (f.properties as Record<string, string> | null)?.name
+      const nameHe = (f.properties as Record<string, string> | null)?.nameHe
+      if (name && nameHe) m.set(name.toLowerCase(), nameHe)
+    }
+    return m
+  }, [geofences])
+
+  const getHebrewName = (areaName: string) =>
+    heNameMap.get(areaName.toLowerCase()) ?? areaName
 
   // Re-render every 10s so relative times stay fresh
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -192,10 +207,10 @@ export default function EventFeed({ compact }: Props) {
 
                     {/* Main content */}
                     <div className="flex-1 min-w-0">
-                      {/* Area name + badges row */}
+                      {/* Area name + badges row — Hebrew name preferred */}
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className={cn('text-xs font-bold truncate', cfg.textClass)}>
-                          {event.areaName}
+                          {getHebrewName(event.areaName)}
                         </span>
                         {isActive && (
                           <span className="text-[9px] bg-red-50 text-red-600 border border-red-200 px-1.5 py-0.5 rounded-full font-bold flex-shrink-0">
