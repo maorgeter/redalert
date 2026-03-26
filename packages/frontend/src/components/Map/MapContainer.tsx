@@ -116,15 +116,18 @@ function applyHebrewLabels(m: maplibregl.Map): void {
     for (const layer of m.getStyle()?.layers ?? []) {
       if (layer.type !== 'symbol') continue
       try {
-        if (m.getLayoutProperty(layer.id, 'text-field')) {
-          // Prefer Hebrew name; fall back to generic name
-          m.setLayoutProperty(layer.id, 'text-field', [
-            'coalesce', ['get', 'name:he'], ['get', 'name'],
-          ])
-          // Override font stack so Hebrew Unicode block renders correctly
-          m.setLayoutProperty(layer.id, 'text-font', HEBREW_FONT_STACK)
-        }
-      } catch { /* some layers resist override — skip */ }
+        // Use 'layout' from the style spec directly — more reliable than
+        // getLayoutProperty() which can return undefined even when a field exists.
+        const layout = (layer as maplibregl.SymbolLayerSpecification).layout ?? {}
+        if (!('text-field' in layout)) continue
+
+        // Prefer Hebrew name; fall back to the tile's generic name field
+        m.setLayoutProperty(layer.id, 'text-field', [
+          'coalesce', ['get', 'name:he'], ['get', 'name'],
+        ])
+        // Force Noto Sans Hebrew so Hebrew Unicode block (U+0590–U+05FF) renders
+        m.setLayoutProperty(layer.id, 'text-font', HEBREW_FONT_STACK)
+      } catch { /* individual layer errors are non-fatal */ }
     }
   } catch { /* non-critical */ }
 }
@@ -249,6 +252,15 @@ export default function MapContainer() {
       initLayers()
       setupInteractions()
       startAnimLoop()
+    })
+
+    // Re-apply Hebrew labels whenever the style is updated (tile loads, style swap).
+    // 'styledata' fires for every style change; the isStyleLoaded() guard prevents
+    // running before layers exist, and the inner try/catch makes each layer safe.
+    map.current.on('styledata', () => {
+      const m = map.current
+      if (!m || !m.isStyleLoaded()) return
+      applyHebrewLabels(m)
     })
 
     return () => {
