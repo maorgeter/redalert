@@ -47,6 +47,9 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 ENV PORT=3000
+# Next.js standalone reads HOSTNAME to decide what interface to bind.
+# Must be 0.0.0.0 so Render's proxy can reach the container.
+ENV HOSTNAME=0.0.0.0
 
 # Copy the entire standalone directory.
 # outputFileTracingRoot = monorepo root (/build) means Next.js mirrors the full

@@ -48,7 +48,8 @@ COPY --from=builder /build/packages/backend/data ./packages/backend/data
 
 WORKDIR /app/packages/backend
 
-# Render injects PORT automatically; 3001 is the local fallback
+# Render overrides PORT automatically; 3001 is the local fallback
+ENV PORT=3001
 EXPOSE 3001
 
 CMD ["node", "dist/server.js"]
