@@ -235,6 +235,7 @@ export default function MapContainer() {
   const flashTimeRef       = useRef<number | null>(null)
   const fadingStartRef     = useRef<number | null>(null)
   const hebrewDebounceRef  = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const activeNodesRef     = useRef<[number, number][]>([]) // centers of active threat nodes for sonar
 
   // Keep current store values accessible inside RAF without stale closures
   const geofencesRef = useRef(useAlertStore.getState().geofences)
@@ -438,15 +439,15 @@ export default function MapContainer() {
       paint: {
         'line-color': COLORS.redAlert,
         'line-width': 8,
-        'line-blur': 4,
+        'line-blur':  4,
         'line-opacity': 0.18,
       } })
 
     // Sharp centre line — thin, high contrast
     m.addLayer({ id: 'alert-edges-line', type: 'line', source: 'alert-edges',
       paint: {
-        'line-color': '#ff6b6b',
-        'line-width': 1,
+        'line-color':   '#ff6b6b',
+        'line-width':   1,
         'line-opacity': 0.55,
       } })
 
@@ -460,10 +461,6 @@ export default function MapContainer() {
         'circle-opacity': 0.15,
         'circle-pitch-alignment': 'map',
       } })
-
-    // Active alert border — subtle geofence outline for geographic context
-    m.addLayer({ id: 'active-alerts-line', type: 'line', source: 'active-alerts',
-      paint: { 'line-color': alertBorderColor, 'line-width': 1.5, 'line-opacity': 0.6 } })
 
     // Hebrew city name + alert title label at centroid, positioned above the node
     m.addLayer({
@@ -557,8 +554,8 @@ export default function MapContainer() {
     // Ripple rings (line only for clean look)
     m.addLayer({ id: 'ripple-line', type: 'line', source: 'ripples',
       paint: {
-        'line-color': COLORS.ripple,
-        'line-width': 2.5,
+        'line-color': ['coalesce', ['get', 'color'], COLORS.ripple],
+        'line-width': 2,
         'line-opacity': ['coalesce', ['get', 'opacity'], 0.1],
       } })
   }
@@ -594,15 +591,6 @@ export default function MapContainer() {
       if (m.getLayer('alert-node-core'))
         m.setPaintProperty('alert-node-core', 'circle-opacity',
           Math.min(1.0, 0.85 + 0.15 * Math.abs(sin) + flashBoost * 0.15))
-
-      // Graph edges pulse at a slower, offset phase — creates a "data-flow" feel
-      const edgeSin = Math.sin(pulsePhaseRef.current * 0.65 + 1.3)
-      if (m.getLayer('alert-edges-glow'))
-        m.setPaintProperty('alert-edges-glow', 'line-opacity',
-          Math.min(0.38, 0.12 + 0.09 * edgeSin + flashBoost * 0.28))
-      if (m.getLayer('alert-edges-line'))
-        m.setPaintProperty('alert-edges-line', 'line-opacity',
-          Math.min(0.90, 0.42 + 0.28 * edgeSin + flashBoost * 0.30))
 
       // Estimated zone pulse (slightly offset phase for organic feel)
       if (m.getLayer('estimated-zones-fill'))
