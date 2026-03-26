@@ -30,6 +30,7 @@ interface AlertStore {
   addEvent: (event: AlertEvent) => void
   expireEvent: (event: AlertEvent) => void
   bulkSetEvents: (events: AlertEvent[]) => void
+  mergeHistoryEvents: (events: AlertEvent[]) => void
   setZones: (zones: EstimatedZone[]) => void
   setWsConnected: (connected: boolean) => void
   markInitReceived: () => void
@@ -95,7 +96,11 @@ export const useAlertStore = create<AlertStore>((set, get) => ({
     }),
 
   bulkSetEvents: (events) => {
-    const sliced = events.slice(0, MAX_EVENTS)
+    // Always display newest first regardless of server send order
+    const sorted = [...events].sort(
+      (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    )
+    const sliced = sorted.slice(0, MAX_EVENTS)
     const activeEvents = sliced.filter((e) => e.status === AlertStatus.ACTIVE)
     const now = new Date().toISOString()
     set({
@@ -106,6 +111,16 @@ export const useAlertStore = create<AlertStore>((set, get) => ({
       ...computeTypeCounts(activeEvents),
     })
   },
+
+  mergeHistoryEvents: (historyEvents) =>
+    set((state) => {
+      const existingIds = new Set(state.events.map((e) => e.id))
+      const incoming = historyEvents.filter((e) => !existingIds.has(e.id))
+      if (incoming.length === 0) return {}
+      // Append older historical events after existing real-time ones
+      const merged = [...state.events, ...incoming].slice(0, MAX_EVENTS)
+      return { events: merged }
+    }),
 
   setZones: (estimatedZones) => set({ estimatedZones }),
 

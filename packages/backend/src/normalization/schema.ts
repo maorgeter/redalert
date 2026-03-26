@@ -41,6 +41,7 @@ export enum AlertCategory {
   RADIATION = 'radiation',
   TSUNAMI = 'tsunami',
   CHEMICAL = 'chemical',
+  EVENT_ENDED = 'event_ended',
   UNKNOWN = 'unknown',
 }
 
@@ -63,6 +64,8 @@ export const NormalizedEventSchema = z.object({
   category: z.nativeEnum(AlertCategory),
   alertType: z.nativeEnum(AlertType).default(AlertType.WARNING),
   ttlSeconds: z.number().default(300),
+  title: z.string().default(''),
+  description: z.string().default(''),
 })
 
 export type NormalizedEvent = z.infer<typeof NormalizedEventSchema>
@@ -85,6 +88,8 @@ export interface NormalizedEventDTO {
   category: AlertCategory
   alertType: AlertType
   ttlSeconds: number
+  title: string
+  description: string
 }
 
 export function toDTO(event: NormalizedEvent): NormalizedEventDTO {
@@ -97,19 +102,24 @@ export function toDTO(event: NormalizedEvent): NormalizedEventDTO {
     updatedAt: event.updatedAt.toISOString(),
     provenance: event.provenance ?? [event.source],
     alertType: event.alertType ?? AlertType.WARNING,
+    title: event.title ?? '',
+    description: event.description ?? '',
   }
 }
 
 // Alert category mapping from OREF category codes
+// Source: Pikud HaOref public documentation
 export const OREF_CATEGORY_MAP: Record<number, AlertCategory> = {
-  1: AlertCategory.ROCKETS,
-  2: AlertCategory.HOSTILE_AIRCRAFT,
-  3: AlertCategory.EARTHQUAKE,
-  4: AlertCategory.RADIATION,
-  5: AlertCategory.INFILTRATION,
-  7: AlertCategory.TSUNAMI,
-  13: AlertCategory.MISSILE,
-  101: AlertCategory.CHEMICAL,
+  1: AlertCategory.ROCKETS,         // ירי רקטות וטילים
+  2: AlertCategory.RADIATION,       // רדיולוגי / גרעיני
+  3: AlertCategory.EARTHQUAKE,      // רעידת אדמה
+  4: AlertCategory.EVENT_ENDED,     // האירוע הסתיים
+  5: AlertCategory.TSUNAMI,         // צונאמי
+  6: AlertCategory.HOSTILE_AIRCRAFT, // כלי טיס עוין
+  7: AlertCategory.INFILTRATION,    // חדירת מחבלים
+  13: AlertCategory.EVENT_ENDED,       // האירוע הסתיים
+  14: AlertCategory.UNKNOWN,           // צפויות התרעות (pre-alert)
+  101: AlertCategory.CHEMICAL,      // אירוע כימי
 }
 
 export const CATEGORY_SEVERITY: Record<AlertCategory, AlertSeverity> = {
@@ -121,6 +131,7 @@ export const CATEGORY_SEVERITY: Record<AlertCategory, AlertSeverity> = {
   [AlertCategory.RADIATION]: AlertSeverity.HIGH,
   [AlertCategory.TSUNAMI]: AlertSeverity.CRITICAL,
   [AlertCategory.CHEMICAL]: AlertSeverity.HIGH,
+  [AlertCategory.EVENT_ENDED]: AlertSeverity.LOW,
   [AlertCategory.UNKNOWN]: AlertSeverity.MEDIUM,
 }
 
@@ -134,6 +145,7 @@ export const CATEGORY_ALERT_TYPE: Record<AlertCategory, AlertType> = {
   [AlertCategory.RADIATION]: AlertType.WARNING,
   [AlertCategory.TSUNAMI]: AlertType.WARNING,
   [AlertCategory.CHEMICAL]: AlertType.WARNING,
+  [AlertCategory.EVENT_ENDED]: AlertType.ALL_CLEAR,
   [AlertCategory.UNKNOWN]: AlertType.WARNING,
 }
 
@@ -142,11 +154,16 @@ export const CATEGORY_ALERT_TYPE: Record<AlertCategory, AlertType> = {
  * The title field contains the Hebrew alert name sent by Pikud HaOref.
  */
 export function alertTypeFromOrefTitle(title: string, category: AlertCategory): AlertType {
+  // EVENT_ENDED (cat 4) is always an all-clear signal
+  if (category === AlertCategory.EVENT_ENDED) {
+    return AlertType.ALL_CLEAR
+  }
   // All-clear messages contain these phrases
   if (
     title.includes('יציאה מהמקלט') ||
     title.includes('ביטול התרעה') ||
     title.includes('ניתן לצאת') ||
+    title.includes('האירוע הסתיים') ||
     title.includes('all clear')
   ) {
     return AlertType.ALL_CLEAR

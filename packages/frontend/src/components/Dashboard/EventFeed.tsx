@@ -5,11 +5,12 @@ import { useSystemStore } from '@/store/systemStore'
 import {
   AlertStatus,
   AlertType,
+  AlertCategory,
   ALERT_TYPE_HE,
   CATEGORY_HE,
   SOURCE_HE,
 } from '@/types'
-import { BellOff, Wifi, WifiOff, Siren, AlertTriangle, CheckCircle2 } from 'lucide-react'
+import { BellOff, Wifi, WifiOff, Siren, AlertTriangle, CheckCircle2, ShieldCheck } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 // ─── Alert type visual config ─────────────────────────────────────────────────
@@ -47,6 +48,18 @@ const TYPE_CONFIG = {
   },
 } as const
 
+// Special visual config for EVENT_ENDED (cat 4) — blue/navy HFC look
+const EVENT_ENDED_CONFIG = {
+  label: 'האירוע הסתיים',
+  borderClass: 'border-r-2 border-blue-500',
+  dotClass: 'bg-blue-500',
+  textClass: 'text-blue-800',
+  badgeClass: 'bg-blue-100 text-blue-800 border border-blue-200',
+  bgClass: 'bg-blue-50/30',
+  Icon: ShieldCheck,
+  iconClass: 'text-blue-600',
+}
+
 type TypeFilter = 'all' | AlertType
 
 interface FilterTab {
@@ -83,20 +96,24 @@ export default function EventFeed({ compact }: Props) {
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all')
   const [, forceRender] = useState(0)
 
-  // Build a lowercase-name → Hebrew-name lookup from loaded geofences.
-  // Used to display city names in Hebrew even for English mock-data events.
+  // Name lookup map: English lowercase → Hebrew, AND Hebrew → Hebrew.
+  // OREF live data sends Hebrew names directly; mock data sends English.
+  // Both paths need to resolve to the canonical Hebrew display name.
   const heNameMap = useMemo(() => {
     const m = new Map<string, string>()
     for (const f of geofences?.features ?? []) {
       const name   = (f.properties as Record<string, string> | null)?.name
       const nameHe = (f.properties as Record<string, string> | null)?.nameHe
-      if (name && nameHe) m.set(name.toLowerCase(), nameHe)
+      if (name && nameHe) m.set(name.toLowerCase(), nameHe)  // English → Hebrew
+      if (nameHe)         m.set(nameHe, nameHe)              // Hebrew  → Hebrew (identity)
     }
     return m
   }, [geofences])
 
+  // Returns the best Hebrew display name for a given area identifier.
+  // Falls back to areaName as-is (which is already Hebrew for real OREF alerts).
   const getHebrewName = (areaName: string) =>
-    heNameMap.get(areaName.toLowerCase()) ?? areaName
+    heNameMap.get(areaName) ?? heNameMap.get(areaName.toLowerCase()) ?? areaName
 
   // Re-render every 10s so relative times stay fresh
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -115,7 +132,7 @@ export default function EventFeed({ compact }: Props) {
     ? events
     : events.filter((e) => (e.alertType ?? AlertType.WARNING) === typeFilter)
 
-  const displayEvents = filtered.slice(0, compact ? 20 : 60)
+  const displayEvents = filtered.slice(0, compact ? 20 : 100)
 
   // Counts for badge tabs
   const activeCounts: Record<TypeFilter, number> = {
@@ -146,11 +163,18 @@ export default function EventFeed({ compact }: Props) {
             {hebrewRelativeTime(lastEventReceivedAt)}
           </span>
         )}
-        {activeEvents.length > 0 && (
-          <span className="text-[10px] font-bold text-red-600 bg-red-50 border border-red-200 rounded-full px-2 py-0.5 tabular-nums">
-            {activeEvents.length} פעיל
-          </span>
-        )}
+        <div className="flex items-center gap-1.5">
+          {activeEvents.length > 0 && (
+            <span className="text-[10px] font-bold text-red-600 bg-red-50 border border-red-200 rounded-full px-2 py-0.5 tabular-nums">
+              {activeEvents.length} פעיל
+            </span>
+          )}
+          {events.length > 0 && (
+            <span className="text-[10px] text-slate-400 tabular-nums">
+              {events.length} סה״כ
+            </span>
+          )}
+        </div>
       </div>
 
       {/* ── Type filter tabs ─── */}
@@ -173,7 +197,7 @@ export default function EventFeed({ compact }: Props) {
       </div>
 
       {/* ── Event list ─── */}
-      <div className="flex-1 overflow-y-auto scrollbar-thin">
+      <div className="flex-1 overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-200 [&::-webkit-scrollbar-thumb:hover]:bg-slate-300 min-h-0">
         {displayEvents.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-20 text-slate-300 gap-1">
             <BellOff className="w-4 h-4" />
@@ -183,7 +207,8 @@ export default function EventFeed({ compact }: Props) {
           <div className="divide-y divide-slate-50">
             {displayEvents.map((event) => {
               const alertType = event.alertType ?? AlertType.WARNING
-              const cfg = TYPE_CONFIG[alertType]
+              const isEventEnded = event.category === AlertCategory.EVENT_ENDED
+              const cfg = isEventEnded ? EVENT_ENDED_CONFIG : TYPE_CONFIG[alertType]
               const TypeIcon = cfg.Icon
               const isActive = event.status === AlertStatus.ACTIVE
               const sourceLabel = SOURCE_HE[event.source] ?? event.source
@@ -196,7 +221,7 @@ export default function EventFeed({ compact }: Props) {
                   className={cn(
                     'px-3 py-2.5 transition-colors hover:bg-slate-50/80 event-new',
                     cfg.borderClass,
-                    !isActive && 'opacity-50',
+                    !isActive && 'opacity-60',
                   )}
                 >
                   <div className="flex items-start gap-2">
@@ -212,9 +237,14 @@ export default function EventFeed({ compact }: Props) {
                         <span className={cn('text-xs font-bold truncate', cfg.textClass)}>
                           {getHebrewName(event.areaName)}
                         </span>
-                        {isActive && (
+                        {isActive && !isEventEnded && (
                           <span className="text-[9px] bg-red-50 text-red-600 border border-red-200 px-1.5 py-0.5 rounded-full font-bold flex-shrink-0">
                             חי
+                          </span>
+                        )}
+                        {isEventEnded && (
+                          <span className="text-[9px] bg-blue-50 text-blue-700 border border-blue-200 px-1.5 py-0.5 rounded-full font-bold flex-shrink-0">
+                            הסתיים
                           </span>
                         )}
                         {isMultiSource && (

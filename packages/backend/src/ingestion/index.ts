@@ -3,8 +3,16 @@ import { BaseIngestionAdapter, AdapterStatus } from './adapters/base'
 import { MockIngestionAdapter } from './adapters/mock'
 import { OrefIngestionAdapter } from './adapters/oref'
 import { DeduplicationCache } from './deduplication'
-import { NormalizedEvent, AlertStatus } from '../normalization/schema'
+import {
+  NormalizedEvent,
+  AlertStatus,
+  AlertType,
+  AlertCategory,
+  AlertSeverity,
+  AreaType,
+} from '../normalization/schema'
 import { geofenceIndex } from '../geospatial'
+import { query, isDbAvailable } from '../persistence/db'
 import { config } from '../config'
 import { logger } from '../logger'
 
@@ -118,8 +126,13 @@ export class IngestionManager extends EventEmitter {
     this.eventStore.push(event)
     if (this.eventStore.length > 200) this.eventStore.shift()
 
-    logger.info({ id: event.id, area: event.areaName, src: event.source }, 'New alert event')
+    logger.info({ id: event.id, area: event.areaName, cat: event.category, src: event.source }, 'New alert event')
     this.emit('event', event)
+
+    // Persist to DB (fire-and-forget)
+    this.persistEventToDb(event).catch((err) =>
+      logger.warn({ err: (err as Error).message, id: event.id }, 'DB persist failed')
+    )
   }
 
   private expireOldEvents(): void {
@@ -157,5 +170,97 @@ export class IngestionManager extends EventEmitter {
 
   getAdapterStatuses(): AdapterStatus[] {
     return this.adapters.map((a) => a.getStatus())
+  }
+
+  /**
+   * Returns up to `limit` events for the WebSocket init message.
+   * Merges in-memory events (authoritative, up-to-date) with recent DB history
+   * so the client list is populated even after a backend restart.
+   */
+  async getInitEvents(limit = 50): Promise<NormalizedEvent[]> {
+    const memEvents = this.getRecentEvents(300_000)
+    if (!isDbAvailable()) return memEvents
+
+    try {
+      const rows = await query<Record<string, unknown>>(
+        `SELECT id, source, timestamp, area_name, area_type, city_names,
+                geofence_id, received_at, updated_at, severity, confidence,
+                status, category, ttl_seconds,
+                COALESCE(alert_type, 'warning') AS alert_type,
+                COALESCE(title, '')             AS title,
+                COALESCE(description, '')       AS description
+         FROM alert_events
+         ORDER BY timestamp DESC
+         LIMIT $1`,
+        [limit]
+      )
+      const memIds = new Set(memEvents.map((e) => e.id))
+      const dbEvents: NormalizedEvent[] = rows
+        .filter((r) => !memIds.has(r.id as string))
+        .map((r) => ({
+          id:          r.id as string,
+          source:      r.source as string,
+          provenance:  [r.source as string],
+          timestamp:   r.timestamp as Date,
+          areaName:    r.area_name as string,
+          areaType:    r.area_type as AreaType,
+          cityNames:   r.city_names as string[],
+          geofenceId:  (r.geofence_id as string | null) ?? undefined,
+          rawPayload:  null,
+          receivedAt:  r.received_at as Date,
+          updatedAt:   r.updated_at as Date,
+          severity:    r.severity as AlertSeverity,
+          confidence:  r.confidence as number,
+          status:      r.status as AlertStatus,
+          category:    r.category as AlertCategory,
+          alertType:   (r.alert_type as AlertType) ?? AlertType.WARNING,
+          ttlSeconds:  r.ttl_seconds as number,
+          title:       (r.title as string) ?? '',
+          description: (r.description as string) ?? '',
+        }))
+
+      return [...memEvents, ...dbEvents]
+        .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+        .slice(0, limit)
+    } catch (err) {
+      logger.warn({ err: (err as Error).message }, 'DB history fetch for WS init failed — using memory only')
+      return memEvents
+    }
+  }
+
+  private async persistEventToDb(event: NormalizedEvent): Promise<void> {
+    if (!isDbAvailable()) return
+    await query(
+      `INSERT INTO alert_events (
+        id, source, timestamp, area_name, area_type, city_names, geofence_id,
+        raw_payload, received_at, updated_at, severity, confidence, status,
+        category, ttl_seconds, alert_type, title, description
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
+      ON CONFLICT (id) DO UPDATE SET
+        status      = EXCLUDED.status,
+        updated_at  = EXCLUDED.updated_at,
+        confidence  = EXCLUDED.confidence,
+        geofence_id = EXCLUDED.geofence_id`,
+      [
+        event.id,
+        event.source,
+        event.timestamp,
+        event.areaName,
+        event.areaType,
+        event.cityNames,
+        event.geofenceId ?? null,
+        JSON.stringify(event.rawPayload),
+        event.receivedAt,
+        event.updatedAt,
+        event.severity,
+        event.confidence,
+        event.status,
+        event.category,
+        event.ttlSeconds,
+        event.alertType ?? 'warning',
+        event.title ?? '',
+        event.description ?? '',
+      ]
+    )
   }
 }

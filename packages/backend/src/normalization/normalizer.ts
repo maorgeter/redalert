@@ -43,35 +43,41 @@ export class Normalizer {
       source: 'oref',
       provenance: ['oref'],
       timestamp: now,
-      areaName: raw.data[0] ?? 'Unknown',
+      areaName: raw.data[0] ?? raw.title ?? 'כללי',
       areaType: AreaType.ZONE,
-      cityNames: raw.data,
+      cityNames: raw.data.length > 0 ? raw.data : [raw.title ?? 'כללי'],
       rawPayload: raw,
       receivedAt: now,
       updatedAt: now,
       severity: CATEGORY_SEVERITY[category],
       confidence: 1.0,
-      status: alertType === AlertType.ALL_CLEAR ? AlertStatus.EXPIRED : AlertStatus.ACTIVE,
+      status: AlertStatus.ACTIVE,
       category,
       alertType,
       ttlSeconds: alertType === AlertType.ALL_CLEAR ? 30 : 300,
+      title: raw.title ?? '',
+      description: raw.desc ?? '',
     }
   }
 
   /**
    * When OREF returns multiple areas in a single alert, split into individual
    * events (one per area) to allow per-polygon mapping.
+   * EVENT_ENDED alerts (cat 4) may have an empty data array — we create a
+   * single synthetic event so they are never silently dropped.
    */
   normalizeOrefMultiArea(raw: OrefRawAlert): NormalizedEvent[] {
-    if (raw.data.length === 0) return []
     const baseId = raw.id || uuidv4()
     const catCode = parseInt(raw.cat, 10)
     const category = OREF_CATEGORY_MAP[catCode] ?? AlertCategory.ROCKETS
     const alertType = alertTypeFromOrefTitle(raw.title ?? '', category)
     const now = new Date()
 
-    return raw.data.map((areaName, i) => ({
-      id: raw.data.length === 1 ? baseId : `${baseId}-${i}`,
+    // Use the title as a fallback area name when data array is empty
+    const areas: string[] = raw.data.length > 0 ? raw.data : [raw.title ?? 'כללי']
+
+    return areas.map((areaName, i) => ({
+      id: areas.length === 1 ? baseId : `${baseId}-${i}`,
       source: 'oref',
       provenance: ['oref'],
       timestamp: now,
@@ -83,10 +89,12 @@ export class Normalizer {
       updatedAt: now,
       severity: CATEGORY_SEVERITY[category],
       confidence: 1.0,
-      status: alertType === AlertType.ALL_CLEAR ? AlertStatus.EXPIRED : AlertStatus.ACTIVE,
+      status: AlertStatus.ACTIVE,
       category,
       alertType,
       ttlSeconds: alertType === AlertType.ALL_CLEAR ? 30 : 300,
+      title: raw.title ?? '',
+      description: raw.desc ?? '',
     }))
   }
 
@@ -110,7 +118,9 @@ export class Normalizer {
       status: AlertStatus.ACTIVE,
       category,
       alertType: CATEGORY_ALERT_TYPE[category] ?? AlertType.WARNING,
-      ttlSeconds: 300,
+      ttlSeconds: (CATEGORY_ALERT_TYPE[category] ?? AlertType.WARNING) === AlertType.ALL_CLEAR ? 30 : 300,
+      title: '',
+      description: '',
     }
   }
 

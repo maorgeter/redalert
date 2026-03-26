@@ -30,13 +30,14 @@ const ISRAEL_CENTER: [number, number] = [34.85, 31.5]
 const ISRAEL_ZOOM = 7.5
 
 // ─── Animation constants ─────────────────────────────────────────────────────
-const RIPPLE_DURATION_MS = 2200
-const RIPPLE_MAX_KM = 55
-const RIPPLE_RINGS = 2
-const RIPPLE_RING_OFFSET_MS = 600
-const FADE_OUT_MS = 2800
-const FLASH_MS = 1400
-const DASH_STEP_INTERVAL_MS = 55 // ms between marching ants steps
+const RIPPLE_MAX_KM = 13           // sonar ring max radius in km
+const RIPPLE_RINGS = 3              // concurrent rings per node
+const SONAR_PERIOD_MS = 2400        // full ring cycle duration
+const FADE_OUT_MS = 2800            // expired-zone fade duration
+const FLASH_MS = 1400               // new-alert flash boost
+const DASH_STEP_INTERVAL_MS = 55    // ms between marching ants steps
+const CAT13_SHOW_MS  = 10000        // ms to show category-13 node before fading
+const CAT13_FADE_MS  = 2000         // category-13 fade-out duration
 
 // Marching ants sequence for estimated zone borders (MapLibre technique)
 const MARCH_SEQ = [
@@ -211,6 +212,10 @@ function zonePopupHtml(props: Record<string, string | number>): string {
 
 // ─── Animation state types ───────────────────────────────────────────────────
 interface Ripple { id: string; center: [number, number]; startTime: number }
+interface ClearingNode { id: string; center: [number, number]; cityHe: string; startTime: number }
+
+const ALL_CLEAR_VISIBLE_MS  = 10_000  // total display window for ALL_CLEAR nodes
+const ALL_CLEAR_FADE_START_MS = 7_000 // begin fade after this many ms
 
 // ─── Component ───────────────────────────────────────────────────────────────
 export default function MapContainer() {
@@ -225,6 +230,8 @@ export default function MapContainer() {
   const animFrameRef       = useRef<number | null>(null)
   const ripplesRef         = useRef<Ripple[]>([])
   const rippleClearRef     = useRef(false) // flag: clear ripple source next frame
+  const clearingNodesRef   = useRef<ClearingNode[]>([])
+  const clearingTrackedRef = useRef(new Set<string>()) // ids already managed in clearingNodesRef
   const flashTimeRef       = useRef<number | null>(null)
   const fadingStartRef     = useRef<number | null>(null)
   const hebrewDebounceRef  = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -327,6 +334,9 @@ export default function MapContainer() {
       ['active-alerts-line',   layerVisibility.activeAlerts],
       ['alert-labels',         layerVisibility.activeAlerts],
       ['alert-node-core',      layerVisibility.activeAlerts],
+      ['clearing-glow',        layerVisibility.activeAlerts],
+      ['clearing-core',        layerVisibility.activeAlerts],
+      ['clearing-labels',      layerVisibility.activeAlerts],
       ['fading-fill',          layerVisibility.activeAlerts],
       ['heatmap-layer',        layerVisibility.activeAlerts],
       ['estimated-zones-fill', layerVisibility.estimatedZones],
@@ -348,6 +358,7 @@ export default function MapContainer() {
     m.addSource('heatmap-points',  { type: 'geojson', data: empty })
     m.addSource('alert-edges',     { type: 'geojson', data: empty })
     m.addSource('ripples',         { type: 'geojson', data: empty })
+    m.addSource('clearing-nodes',  { type: 'geojson', data: empty })
   }
 
   // ── Layer initialisation ──────────────────────────────────────────────────
@@ -454,25 +465,31 @@ export default function MapContainer() {
     m.addLayer({ id: 'active-alerts-line', type: 'line', source: 'active-alerts',
       paint: { 'line-color': alertBorderColor, 'line-width': 1.5, 'line-opacity': 0.6 } })
 
-    // Hebrew city name label at centroid (RTL via plugin)
+    // Hebrew city name + alert title label at centroid, positioned above the node
     m.addLayer({
       id: 'alert-labels',
       type: 'symbol',
       source: 'heatmap-points',
       layout: {
-        'text-field': ['coalesce', ['get', 'city_he'], ['get', 'city_name']],
+        'text-field': [
+          'case',
+          ['all', ['has', 'title_he'], ['!=', ['get', 'title_he'], '']],
+          ['concat', ['coalesce', ['get', 'city_he'], ''], ' - ', ['get', 'title_he']],
+          ['coalesce', ['get', 'city_he'], ['get', 'city_name'], ''],
+        ],
         'text-font': HEBREW_FONT_STACK,
-        'text-size': 16,
-        'text-anchor': 'center',
+        'text-size': 15,
+        'text-anchor': 'bottom',
+        'text-offset': [0, -1.4],
         'text-allow-overlap': true,
         'text-ignore-placement': true,
         'text-padding': 0,
       },
       paint: {
         'text-color': '#ffffff',
-        'text-halo-color': haloColor,
-        'text-halo-width': 2.5,
-        'text-halo-blur': 0.5,
+        'text-halo-color': '#000000',
+        'text-halo-width': 3,
+        'text-halo-blur': 0,
         'text-opacity': 1,
       },
     })
@@ -489,6 +506,53 @@ export default function MapContainer() {
         'circle-stroke-opacity': 1,
         'circle-pitch-alignment': 'map',
       } })
+
+    // ── ALL_CLEAR clearing nodes (green, fade out over 10 s) ─────────────────
+    // Outer glow for clearing nodes
+    m.addLayer({ id: 'clearing-glow', type: 'circle', source: 'clearing-nodes',
+      paint: {
+        'circle-color': COLORS.allClear,
+        'circle-radius': 90,
+        'circle-blur': 1.4,
+        'circle-opacity': ['*', ['coalesce', ['get', 'opacity'], 1], 0.22],
+        'circle-pitch-alignment': 'map',
+      } })
+
+    // Bright core for clearing nodes
+    m.addLayer({ id: 'clearing-core', type: 'circle', source: 'clearing-nodes',
+      paint: {
+        'circle-color': '#ffffff',
+        'circle-radius': 5,
+        'circle-blur': 0,
+        'circle-opacity': ['coalesce', ['get', 'opacity'], 0.95],
+        'circle-stroke-color': COLORS.allClear,
+        'circle-stroke-width': 2.5,
+        'circle-stroke-opacity': ['coalesce', ['get', 'opacity'], 1],
+        'circle-pitch-alignment': 'map',
+      } })
+
+    // 'יציאה מהמקלט' label for clearing nodes
+    m.addLayer({
+      id: 'clearing-labels',
+      type: 'symbol',
+      source: 'clearing-nodes',
+      layout: {
+        'text-field': 'יציאה מהמקלט',
+        'text-font': HEBREW_FONT_STACK,
+        'text-size': 15,
+        'text-anchor': 'bottom',
+        'text-offset': [0, -1.4],
+        'text-allow-overlap': true,
+        'text-ignore-placement': true,
+      },
+      paint: {
+        'text-color': '#ffffff',
+        'text-halo-color': '#000000',
+        'text-halo-width': 3,
+        'text-halo-blur': 0,
+        'text-opacity': ['coalesce', ['get', 'opacity'], 1],
+      },
+    })
 
     // Ripple rings (line only for clean look)
     m.addLayer({ id: 'ripple-line', type: 'line', source: 'ripples',
@@ -573,13 +637,14 @@ export default function MapContainer() {
 
         for (const ripple of ripplesRef.current) {
           const elapsed = now - ripple.startTime
-          if (elapsed >= RIPPLE_DURATION_MS) continue
+          if (elapsed >= SONAR_PERIOD_MS) continue
           alive.push(ripple)
 
+          const ringOffset = SONAR_PERIOD_MS / RIPPLE_RINGS
           for (let ring = 0; ring < RIPPLE_RINGS; ring++) {
-            const ringElapsed = elapsed - ring * RIPPLE_RING_OFFSET_MS
+            const ringElapsed = elapsed - ring * ringOffset
             if (ringElapsed <= 0) continue
-            const progress = Math.min(1, ringElapsed / RIPPLE_DURATION_MS)
+            const progress = Math.min(1, ringElapsed / SONAR_PERIOD_MS)
             const eased = 1 - (1 - progress) ** 2 // ease-out
             const radius = eased * RIPPLE_MAX_KM
             const opacity = Math.max(0, 0.7 * (1 - progress) ** 1.5)
@@ -602,6 +667,34 @@ export default function MapContainer() {
           ?.setData({ type: 'FeatureCollection', features: [] })
       }
 
+      // ── ALL_CLEAR clearing nodes — green, fade out after 10 s ────────────
+      if (clearingNodesRef.current.length > 0) {
+        const clearFeatures: GeoJSON.Feature[] = []
+        const aliveClearing: ClearingNode[] = []
+
+        for (const node of clearingNodesRef.current) {
+          const elapsed = now - node.startTime
+          if (elapsed >= ALL_CLEAR_VISIBLE_MS) {
+            clearingTrackedRef.current.delete(node.id)
+            continue
+          }
+          aliveClearing.push(node)
+          const t = elapsed - ALL_CLEAR_FADE_START_MS
+          const opacity = t <= 0
+            ? 1.0
+            : Math.max(0, 1.0 - t / (ALL_CLEAR_VISIBLE_MS - ALL_CLEAR_FADE_START_MS))
+          clearFeatures.push({
+            type: 'Feature',
+            properties: { opacity, id: node.id },
+            geometry: { type: 'Point', coordinates: node.center },
+          })
+        }
+
+        clearingNodesRef.current = aliveClearing
+        ;(m.getSource('clearing-nodes') as maplibregl.GeoJSONSource | undefined)
+          ?.setData({ type: 'FeatureCollection', features: clearFeatures })
+      }
+
       animFrameRef.current = requestAnimationFrame(animate)
     }
     animFrameRef.current = requestAnimationFrame(animate)
@@ -622,16 +715,39 @@ export default function MapContainer() {
     // New active alerts
     const newIds = Array.from(currentActive).filter(id => !prev.has(id))
     if (newIds.length > 0 && gf) {
-      flashTimeRef.current = Date.now()
+      // Flash only for non-ALL_CLEAR events (actual threats)
+      const hasThreat = newIds.some(id => {
+        const ev = allEvents.find(e => e.id === id)
+        return ev && ev.alertType !== AlertType.ALL_CLEAR
+      })
+      if (hasThreat) flashTimeRef.current = Date.now()
 
-      for (const id of newIds.slice(0, 4)) {
+      let rippleCount = 0
+      for (const id of newIds) {
         const ev = allEvents.find(e => e.id === id)
         if (!ev) continue
         const feat = findGeofenceFeature(gf, ev.areaName, ev.geofenceId)
         if (!feat) continue
         const center = polygonCentroid(feat as GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>)
         if (!center) continue
-        ripplesRef.current.push({ id: `${id}-${Date.now()}`, center, startTime: Date.now() })
+
+        if (ev.alertType === AlertType.ALL_CLEAR) {
+          // ALL_CLEAR: add to clearing nodes for 10-second green fade-out
+          if (!clearingTrackedRef.current.has(id)) {
+            const fProps = feat.properties as Record<string, string> | null
+            clearingNodesRef.current.push({
+              id,
+              center,
+              cityHe: fProps?.nameHe ?? ev.areaName,
+              startTime: Date.now(),
+            })
+            clearingTrackedRef.current.add(id)
+          }
+        } else if (rippleCount < 4) {
+          // Threat: ripple animation
+          ripplesRef.current.push({ id: `${id}-${Date.now()}`, center, startTime: Date.now() })
+          rippleCount++
+        }
       }
     }
 
@@ -706,6 +822,9 @@ export default function MapContainer() {
     const heatmapPoints: GeoJSON.Feature[] = []
 
     for (const event of activeEvents) {
+      // ALL_CLEAR events are handled separately by clearingNodesRef (10-second green fade-out)
+      if (event.alertType === AlertType.ALL_CLEAR) continue
+
       const feat = findGeofenceFeature(gf, event.areaName, event.geofenceId)
       if (!feat) {
         console.warn('[MapContainer] no geofence match for:', event.areaName, '| geofenceId:', event.geofenceId)
@@ -737,6 +856,7 @@ export default function MapContainer() {
             weight:    Math.min(1, (event.provenance?.length ?? 1) * 0.5) || 0.5,
             city_he:   props?.nameHe   ?? event.areaName,
             city_name: props?.name     ?? event.areaName,
+            title_he:  event.title     ?? '',
             alertType: event.alertType ?? AlertType.RED_ALERT,
           },
           geometry: { type: 'Point', coordinates: center },

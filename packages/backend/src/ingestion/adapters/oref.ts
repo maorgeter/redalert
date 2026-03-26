@@ -23,10 +23,14 @@ const OREF_ALERTS_URL = 'https://www.oref.org.il/WarningMessages/alert/alerts.js
 
 const OREF_HEADERS = {
   'X-Requested-With': 'XMLHttpRequest',
-  Referer: 'https://www.oref.org.il/',
-  'User-Agent': 'Mozilla/5.0 (compatible; AlertMapMonitor/1.0; public-data-only)',
-  Accept: 'application/json',
-  'Cache-Control': 'no-cache',
+  Referer:           'https://www.oref.org.il/',
+  Origin:            'https://www.oref.org.il',
+  // Full browser UA matching an Israeli Chrome on Windows — avoids 403 blocks
+  'User-Agent':      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+  'Accept':          'application/json, text/plain, */*',
+  'Accept-Language': 'he-IL,he;q=0.9,en-US;q=0.8,en;q=0.7',
+  'Cache-Control':   'no-cache',
+  Pragma:            'no-cache',
 }
 
 export class OrefIngestionAdapter extends BaseIngestionAdapter {

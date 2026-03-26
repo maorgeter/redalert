@@ -13,26 +13,38 @@ import { AlertCategory } from '../../normalization/schema'
 import { config } from '../../config'
 import { logger } from '../../logger'
 
+// Each scenario represents a realistic alert sequence:
+// attack events → followed by an Event Ended signal (category 4).
 const MOCK_SCENARIOS: Array<{ areas: string[]; category: AlertCategory }[]> = [
+  // Scenario A: Rocket barrage from south → event ended
   [
-    { areas: ['Sderot', 'Kibbutz Nir Am'], category: AlertCategory.ROCKETS },
+    { areas: ['Sderot', 'Kibbutz Nir Am'],           category: AlertCategory.ROCKETS },
     { areas: ['Ashkelon - South', 'Ashkelon - North'], category: AlertCategory.ROCKETS },
-    { areas: ['Ashdod - Center', 'Ashdod - Port'], category: AlertCategory.ROCKETS },
-    { areas: ['Kiryat Gat', 'Kiryat Malachi'], category: AlertCategory.ROCKETS },
-    { areas: ['Rishon LeZion - South', 'Holon'], category: AlertCategory.ROCKETS },
-    { areas: ['Tel Aviv - Yafo'], category: AlertCategory.ROCKETS },
+    { areas: ['Ashdod - Center', 'Ashdod - Port'],     category: AlertCategory.ROCKETS },
+    { areas: ['Kiryat Gat', 'Kiryat Malachi'],         category: AlertCategory.ROCKETS },
+    { areas: ['Rishon LeZion - South', 'Holon'],       category: AlertCategory.ROCKETS },
+    { areas: ['Tel Aviv - Yafo'],                       category: AlertCategory.ROCKETS },
+    { areas: ['האירוע הסתיים'],                         category: AlertCategory.EVENT_ENDED },
   ],
+  // Scenario B: Northern hostile aircraft → event ended
   [
-    { areas: ['Kiryat Shmona', 'Metula'], category: AlertCategory.ROCKETS },
-    { areas: ['Nahariya', 'Akko'], category: AlertCategory.ROCKETS },
-    { areas: ['Haifa - East', 'Haifa - Center'], category: AlertCategory.ROCKETS },
+    { areas: ['Kiryat Shmona', 'Metula'],      category: AlertCategory.HOSTILE_AIRCRAFT },
+    { areas: ['Nahariya', 'Akko'],             category: AlertCategory.HOSTILE_AIRCRAFT },
+    { areas: ['Haifa - East', 'Haifa - Center'], category: AlertCategory.HOSTILE_AIRCRAFT },
+    { areas: ['האירוע הסתיים'],                  category: AlertCategory.EVENT_ENDED },
   ],
+  // Scenario C: Central rockets + hostile aircraft → event ended
   [
     { areas: ['Jerusalem - Center', 'Jerusalem - North'], category: AlertCategory.ROCKETS },
-    { areas: ["Beit Shemesh", "Modi'in"], category: AlertCategory.ROCKETS },
+    { areas: ["Beit Shemesh", "Modi'in"],                category: AlertCategory.ROCKETS },
+    { areas: ['Tel Aviv - Yafo', 'Ramat Gan'],           category: AlertCategory.HOSTILE_AIRCRAFT },
+    { areas: ['האירוע הסתיים'],                           category: AlertCategory.EVENT_ENDED },
   ],
+  // Scenario D: Southern rockets → event ended
   [
-    { areas: ['Beer Sheba - Center'], category: AlertCategory.ROCKETS },
+    { areas: ['Beer Sheba - Center', 'Beer Sheba - North'], category: AlertCategory.ROCKETS },
+    { areas: ['Kiryat Gat', 'Kiryat Malachi'],              category: AlertCategory.ROCKETS },
+    { areas: ['האירוע הסתיים'],                              category: AlertCategory.EVENT_ENDED },
   ],
 ]
 

@@ -10,6 +10,7 @@ import { initDb } from './persistence/db'
 import { initGeospatial } from './geospatial'
 import { loadGeofences } from './geospatial/loader'
 import { IngestionManager } from './ingestion'
+import { OrefHistoryService } from './ingestion/oref-history-service'
 import { EstimationEngine } from './estimation/engine'
 import { Broadcaster } from './streaming/broadcaster'
 import type { ClientMessage } from './streaming/broadcaster'
@@ -26,6 +27,9 @@ async function bootstrap(): Promise<void> {
   // ── 3. Ingestion ───────────────────────────────────────────────────────────
   const ingestion = new IngestionManager()
   ingestion.initialize()
+
+  // History service: seeds DB from AlertsHistory.json — no WS broadcast
+  const historyService = new OrefHistoryService()
 
   if (!config.ingestion.orefEnabled && !config.ingestion.mockEnabled) {
     logger.warn('No ingestion adapters enabled. Set OREF_INGESTION=true or MOCK_INGESTION=true.')
@@ -60,16 +64,14 @@ async function bootstrap(): Promise<void> {
   await app.register(websocketPlugin)
 
   // ── 7. WebSocket endpoint ──────────────────────────────────────────────────
-  app.get('/ws', { websocket: true }, (connection: SocketStream) => {
+  app.get('/ws', { websocket: true }, async (connection: SocketStream) => {
     const socket = connection.socket
     broadcaster.addClient(socket)
 
-    broadcaster.sendInit(
-      socket,
-      ingestion.getRecentEvents(300_000),
-      engine.getCurrentZones(),
-      geofences
-    )
+    // Include DB history so the list is never empty after a backend restart
+    const initEvents = await ingestion.getInitEvents(50)
+
+    broadcaster.sendInit(socket, initEvents, engine.getCurrentZones(), geofences)
 
     socket.on('message', (data) => {
       try {
@@ -101,6 +103,10 @@ async function bootstrap(): Promise<void> {
   // ── 10. Start adapters + estimation ───────────────────────────────────────
   await ingestion.startAll()
   engine.start()
+  // Start history service after adapters so DB is confirmed available
+  await historyService.start().catch((err) =>
+    logger.warn({ err: (err as Error).message }, 'OREF history service failed to start')
+  )
 
   const address = await app.listen({ port: config.port, host: '0.0.0.0' })
   logger.info(
@@ -111,6 +117,7 @@ async function bootstrap(): Promise<void> {
   // ── Graceful shutdown ──────────────────────────────────────────────────────
   const shutdown = async () => {
     logger.info('Shutting down...')
+    historyService.stop()
     engine.stop()
     await ingestion.stopAll()
     await app.close()

@@ -22,6 +22,7 @@ export enum AlertCategory {
   RADIATION = 'radiation',
   TSUNAMI = 'tsunami',
   CHEMICAL = 'chemical',
+  EVENT_ENDED = 'event_ended',
   UNKNOWN = 'unknown',
 }
 
@@ -55,6 +56,8 @@ export interface AlertEvent {
   category: AlertCategory
   alertType?: AlertType
   ttlSeconds: number
+  title?: string
+  description?: string
 }
 
 export interface ZoneExplanation {
@@ -142,6 +145,7 @@ export const CATEGORY_HE: Record<AlertCategory, string> = {
   [AlertCategory.RADIATION]: 'דליפה רדיואקטיבית',
   [AlertCategory.TSUNAMI]: 'צונאמי',
   [AlertCategory.CHEMICAL]: 'אירוע כימי',
+  [AlertCategory.EVENT_ENDED]: 'האירוע הסתיים',
   [AlertCategory.UNKNOWN]: 'לא ידוע',
 }
 
