@@ -12,7 +12,7 @@ import SourcePanel from './SourcePanel'
 import DebugInspector from './DebugInspector'
 import PipelineDiagnostics from './PipelineDiagnostics'
 import MapLegend from '@/components/Map/MapLegend'
-import { WifiOff, Map, Bell, Activity, ChevronDown, Radio } from 'lucide-react'
+import { WifiOff, Map, Bell, Activity, ChevronDown, Radio, List } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const MapContainer = dynamic(() => import('@/components/Map/MapContainer'), {
@@ -166,12 +166,25 @@ export default function Dashboard() {
             </h1>
           </div>
 
-          {/* Right — time + connection */}
+          {/* Right — alerts list shortcut (mobile) + clock (desktop) */}
           <div className="flex items-center gap-2 min-w-[80px] justify-end">
             {!wsConnected && (
               <WifiOff className="w-3.5 h-3.5 text-slate-400 status-connecting" />
             )}
-            <span className="text-[11px] font-mono text-slate-400 tabular-nums hidden sm:block">
+            {/* Mobile-only list button for quick access to the alerts drawer */}
+            <button
+              className="md:hidden relative p-1.5 rounded-lg hover:bg-slate-50 transition-colors"
+              onClick={() => toggleSheet('alerts')}
+              aria-label="פתח רשימת התרעות"
+            >
+              <List className="w-4.5 h-4.5 text-slate-600" />
+              {activeEvents.length > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 min-w-[14px] h-3.5 bg-red-500 text-white text-[8px] font-bold rounded-full flex items-center justify-center px-0.5 tabular-nums">
+                  {activeEvents.length}
+                </span>
+              )}
+            </button>
+            <span className="text-[11px] font-mono text-slate-400 tabular-nums hidden md:block">
               {clock}
             </span>
           </div>
@@ -209,14 +222,32 @@ export default function Dashboard() {
           <MapLegend />
           <DebugInspector />
 
-          {/* Mobile sheet overlay */}
+          {/* Backdrop — dims the map, tap to dismiss */}
           <div
             className={cn(
-              'md:hidden absolute inset-0 z-20 bg-white flex flex-col overflow-hidden transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]',
+              'md:hidden absolute inset-0 z-10 bg-black/30 transition-opacity duration-300',
+              mobileSheet !== 'none' ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+            )}
+            onClick={() => setMobileSheet('none')}
+            aria-hidden="true"
+          />
+
+          {/* Bottom drawer — slides up from below, covers ~68 % of screen */}
+          <div
+            className={cn(
+              'md:hidden absolute bottom-0 inset-x-0 z-20 bg-white flex flex-col rounded-t-2xl shadow-2xl overflow-hidden',
+              'h-[68vh]',
+              'transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]',
               mobileSheet !== 'none' ? 'translate-y-0' : 'translate-y-full'
             )}
           >
-            <div className="flex-shrink-0 flex justify-between items-center px-4 py-3 border-b border-slate-100 bg-slate-50">
+            {/* Drag handle */}
+            <div className="flex-shrink-0 pt-2.5 pb-1 flex justify-center">
+              <div className="w-10 h-1 bg-slate-200 rounded-full" />
+            </div>
+
+            {/* Sheet title row */}
+            <div className="flex-shrink-0 flex justify-between items-center px-4 pb-3 border-b border-slate-100">
               <div className="w-16" />
               <span className="text-sm font-semibold text-slate-700">
                 {sheetTitle[mobileSheet]}
@@ -229,6 +260,8 @@ export default function Dashboard() {
                 <ChevronDown className="w-5 h-5" />
               </button>
             </div>
+
+            {/* Scrollable content */}
             <div className="flex-1 overflow-y-auto scrollbar-thin">
               {mobileSheet === 'alerts' && <EventFeed compact />}
               {mobileSheet === 'status' && (
