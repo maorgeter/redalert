@@ -1,0 +1,195 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": { "id": "tel-aviv-yafo", "name": "Tel Aviv - Yafo", "nameHe": "תל אביב - יפו", "region": "Tel Aviv District", "population": 460000 },
+      "geometry": { "type": "Polygon", "coordinates": [[[34.748,32.038],[34.810,32.038],[34.810,32.110],[34.748,32.110],[34.748,32.038]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "id": "tel-aviv-north", "name": "Tel Aviv - North", "nameHe": "תל אביב - צפון", "region": "Tel Aviv District", "population": 120000 },
+      "geometry": { "type": "Polygon", "coordinates": [[[34.760,32.100],[34.810,32.100],[34.810,32.155],[34.760,32.155],[34.760,32.100]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "id": "ramat-gan", "name": "Ramat Gan", "nameHe": "רמת גן", "region": "Tel Aviv District", "population": 163000 },
+      "geometry": { "type": "Polygon", "coordinates": [[[34.800,32.060],[34.855,32.060],[34.855,32.110],[34.800,32.110],[34.800,32.060]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "id": "bnei-brak", "name": "Bnei Brak", "nameHe": "בני ברק", "region": "Tel Aviv District", "population": 210000 },
+      "geometry": { "type": "Polygon", "coordinates": [[[34.815,32.075],[34.860,32.075],[34.860,32.105],[34.815,32.105],[34.815,32.075]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "id": "petah-tikva", "name": "Petah Tikva", "nameHe": "פתח תקווה", "region": "Central District", "population": 252000 },
+      "geometry": { "type": "Polygon", "coordinates": [[[34.855,32.070],[34.935,32.070],[34.935,32.125],[34.855,32.125],[34.855,32.070]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "id": "holon", "name": "Holon", "nameHe": "חולון", "region": "Tel Aviv District", "population": 196000 },
+      "geometry": { "type": "Polygon", "coordinates": [[[34.760,31.998],[34.825,31.998],[34.825,32.045],[34.760,32.045],[34.760,31.998]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "id": "bat-yam", "name": "Bat Yam", "nameHe": "בת ים", "region": "Tel Aviv District", "population": 137000 },
+      "geometry": { "type": "Polygon", "coordinates": [[[34.742,32.000],[34.790,32.000],[34.790,32.025],[34.742,32.025],[34.742,32.000]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "id": "rishon-lezion", "name": "Rishon LeZion", "nameHe": "ראשון לציון", "region": "Central District", "population": 265000 },
+      "geometry": { "type": "Polygon", "coordinates": [[[34.760,31.950],[34.845,31.950],[34.845,32.005],[34.760,32.005],[34.760,31.950]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "id": "rishon-lezion-south", "name": "Rishon LeZion - South", "nameHe": "ראשון לציון - דרום", "region": "Central District", "population": 80000 },
+      "geometry": { "type": "Polygon", "coordinates": [[[34.770,31.910],[34.840,31.910],[34.840,31.955],[34.770,31.955],[34.770,31.910]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "id": "rehovot", "name": "Rehovot", "nameHe": "רחובות", "region": "Central District", "population": 150000 },
+      "geometry": { "type": "Polygon", "coordinates": [[[34.785,31.876],[34.860,31.876],[34.860,31.930],[34.785,31.930],[34.785,31.876]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "id": "herzliya", "name": "Herzliya", "nameHe": "הרצליה", "region": "Central District", "population": 100000 },
+      "geometry": { "type": "Polygon", "coordinates": [[[34.820,32.145],[34.880,32.145],[34.880,32.200],[34.820,32.200],[34.820,32.145]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "id": "raanana", "name": "Raanana", "nameHe": "רעננה", "region": "Central District", "population": 83000 },
+      "geometry": { "type": "Polygon", "coordinates": [[[34.845,32.170],[34.905,32.170],[34.905,32.215],[34.845,32.215],[34.845,32.170]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "id": "kfar-saba", "name": "Kfar Saba", "nameHe": "כפר סבא", "region": "Central District", "population": 100000 },
+      "geometry": { "type": "Polygon", "coordinates": [[[34.875,32.158],[34.935,32.158],[34.935,32.195],[34.875,32.195],[34.875,32.158]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "id": "netanya", "name": "Netanya", "nameHe": "נתניה", "region": "Central District", "population": 230000 },
+      "geometry": { "type": "Polygon", "coordinates": [[[34.835,32.272],[34.900,32.272],[34.900,32.355],[34.835,32.355],[34.835,32.272]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "id": "hadera", "name": "Hadera", "nameHe": "חדרה", "region": "Haifa District", "population": 100000 },
+      "geometry": { "type": "Polygon", "coordinates": [[[34.890,32.425],[34.955,32.425],[34.955,32.470],[34.890,32.470],[34.890,32.425]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "id": "haifa-center", "name": "Haifa - Center", "nameHe": "חיפה - מרכז", "region": "Haifa District", "population": 285000 },
+      "geometry": { "type": "Polygon", "coordinates": [[[34.960,32.780],[35.050,32.780],[35.050,32.840],[34.960,32.840],[34.960,32.780]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "id": "haifa-east", "name": "Haifa - East", "nameHe": "חיפה - מזרח", "region": "Haifa District", "population": 100000 },
+      "geometry": { "type": "Polygon", "coordinates": [[[35.040,32.780],[35.110,32.780],[35.110,32.840],[35.040,32.840],[35.040,32.780]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "id": "akko", "name": "Akko", "nameHe": "עכו", "region": "Northern District", "population": 50000 },
+      "geometry": { "type": "Polygon", "coordinates": [[[35.055,32.905],[35.105,32.905],[35.105,32.950],[35.055,32.950],[35.055,32.905]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "id": "nahariya", "name": "Nahariya", "nameHe": "נהריה", "region": "Northern District", "population": 61000 },
+      "geometry": { "type": "Polygon", "coordinates": [[[35.075,32.985],[35.130,32.985],[35.130,33.030],[35.075,33.030],[35.075,32.985]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "id": "kiryat-shmona", "name": "Kiryat Shmona", "nameHe": "קריית שמונה", "region": "Northern District", "population": 22000 },
+      "geometry": { "type": "Polygon", "coordinates": [[[35.548,33.190],[35.600,33.190],[35.600,33.235],[35.548,33.235],[35.548,33.190]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "id": "metula", "name": "Metula", "nameHe": "מטולה", "region": "Northern District", "population": 1500 },
+      "geometry": { "type": "Polygon", "coordinates": [[[35.567,33.268],[35.598,33.268],[35.598,33.295],[35.567,33.295],[35.567,33.268]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "id": "safed", "name": "Safed", "nameHe": "צפת", "region": "Northern District", "population": 35000 },
+      "geometry": { "type": "Polygon", "coordinates": [[[35.465,32.950],[35.530,32.950],[35.530,32.990],[35.465,32.990],[35.465,32.950]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "id": "tiberias", "name": "Tiberias", "nameHe": "טבריה", "region": "Northern District", "population": 45000 },
+      "geometry": { "type": "Polygon", "coordinates": [[[35.508,32.770],[35.560,32.770],[35.560,32.820],[35.508,32.820],[35.508,32.770]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "id": "jerusalem-center", "name": "Jerusalem - Center", "nameHe": "ירושלים - מרכז", "region": "Jerusalem District", "population": 950000 },
+      "geometry": { "type": "Polygon", "coordinates": [[[35.175,31.740],[35.260,31.740],[35.260,31.820],[35.175,31.820],[35.175,31.740]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "id": "jerusalem-north", "name": "Jerusalem - North", "nameHe": "ירושלים - צפון", "region": "Jerusalem District", "population": 150000 },
+      "geometry": { "type": "Polygon", "coordinates": [[[35.175,31.820],[35.230,31.820],[35.230,31.870],[35.175,31.870],[35.175,31.820]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "id": "beit-shemesh", "name": "Beit Shemesh", "nameHe": "בית שמש", "region": "Jerusalem District", "population": 125000 },
+      "geometry": { "type": "Polygon", "coordinates": [[[34.965,31.720],[35.025,31.720],[35.025,31.775],[34.965,31.775],[34.965,31.720]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "id": "modiin", "name": "Modi'in", "nameHe": "מודיעין", "region": "Central District", "population": 105000 },
+      "geometry": { "type": "Polygon", "coordinates": [[[34.975,31.870],[35.045,31.870],[35.045,31.920],[34.975,31.920],[34.975,31.870]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "id": "lod", "name": "Lod", "nameHe": "לוד", "region": "Central District", "population": 80000 },
+      "geometry": { "type": "Polygon", "coordinates": [[[34.862,31.930],[34.920,31.930],[34.920,31.975],[34.862,31.975],[34.862,31.930]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "id": "ashdod-center", "name": "Ashdod - Center", "nameHe": "אשדוד - מרכז", "region": "Southern District", "population": 230000 },
+      "geometry": { "type": "Polygon", "coordinates": [[[34.618,31.775],[34.680,31.775],[34.680,31.845],[34.618,31.845],[34.618,31.775]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "id": "ashdod-port", "name": "Ashdod - Port", "nameHe": "אשדוד - נמל", "region": "Southern District", "population": 50000 },
+      "geometry": { "type": "Polygon", "coordinates": [[[34.598,31.820],[34.640,31.820],[34.640,31.870],[34.598,31.870],[34.598,31.820]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "id": "ashkelon-north", "name": "Ashkelon - North", "nameHe": "אשקלון - צפון", "region": "Southern District", "population": 80000 },
+      "geometry": { "type": "Polygon", "coordinates": [[[34.543,31.668],[34.610,31.668],[34.610,31.720],[34.543,31.720],[34.543,31.668]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "id": "ashkelon-south", "name": "Ashkelon - South", "nameHe": "אשקלון - דרום", "region": "Southern District", "population": 70000 },
+      "geometry": { "type": "Polygon", "coordinates": [[[34.543,31.625],[34.610,31.625],[34.610,31.668],[34.543,31.668],[34.543,31.625]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "id": "kiryat-gat", "name": "Kiryat Gat", "nameHe": "קריית גת", "region": "Southern District", "population": 60000 },
+      "geometry": { "type": "Polygon", "coordinates": [[[34.748,31.585],[34.808,31.585],[34.808,31.635],[34.748,31.635],[34.748,31.585]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "id": "kiryat-malachi", "name": "Kiryat Malachi", "nameHe": "קריית מלאכי", "region": "Southern District", "population": 25000 },
+      "geometry": { "type": "Polygon", "coordinates": [[[34.730,31.720],[34.780,31.720],[34.780,31.760],[34.730,31.760],[34.730,31.720]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "id": "sderot", "name": "Sderot", "nameHe": "שדרות", "region": "Southern District", "population": 28000 },
+      "geometry": { "type": "Polygon", "coordinates": [[[34.577,31.510],[34.625,31.510],[34.625,31.548],[34.577,31.548],[34.577,31.510]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "id": "kibbutz-nir-am", "name": "Kibbutz Nir Am", "nameHe": "קיבוץ ניר עם", "region": "Southern District", "population": 1200 },
+      "geometry": { "type": "Polygon", "coordinates": [[[34.588,31.457],[34.618,31.457],[34.618,31.482],[34.588,31.482],[34.588,31.457]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "id": "beer-sheba-center", "name": "Beer Sheba - Center", "nameHe": "באר שבע - מרכז", "region": "Southern District", "population": 220000 },
+      "geometry": { "type": "Polygon", "coordinates": [[[34.768,31.225],[34.845,31.225],[34.845,31.290],[34.768,31.290],[34.768,31.225]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "id": "eilat", "name": "Eilat", "nameHe": "אילת", "region": "Southern District", "population": 53000 },
+      "geometry": { "type": "Polygon", "coordinates": [[[34.910,29.535],[34.985,29.535],[34.985,29.585],[34.910,29.585],[34.910,29.535]]] }
+    }
+  ]
+}

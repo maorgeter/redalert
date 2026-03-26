@@ -1,0 +1,1 @@
+{"version":3,"file":"events.d.ts","sourceRoot":"","sources":["../../../src/api/routes/events.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,EAAE,eAAe,EAAE,MAAM,SAAS,CAAA;AAC9C,OAAO,KAAK,EAAE,gBAAgB,EAAE,MAAM,iBAAiB,CAAA;AAIvD,wBAAsB,YAAY,CAChC,OAAO,EAAE,eAAe,EACxB,IAAI,EAAE;IAAE,SAAS,EAAE,gBAAgB,CAAA;CAAE,GACpC,OAAO,CAAC,IAAI,CAAC,CAsCf"}

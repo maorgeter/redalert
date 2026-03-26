@@ -1,0 +1,1 @@
+{"version":3,"file":"index.d.ts","sourceRoot":"","sources":["../../src/geospatial/index.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,aAAa,EAAE,MAAM,UAAU,CAAA;AACxC,OAAO,EAAE,YAAY,EAAE,MAAM,iBAAiB,CAAA;AAG9C,eAAO,MAAM,aAAa,cAAqB,CAAA;AAE/C,wBAAgB,cAAc,IAAI,IAAI,CAGrC;AAED,OAAO,EAAE,aAAa,EAAE,YAAY,EAAE,CAAA;AACtC,YAAY,EAAE,kBAAkB,EAAE,eAAe,EAAE,MAAM,UAAU,CAAA"}

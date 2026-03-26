@@ -1,0 +1,23 @@
+{
+  "name": "dynamic-alert-map",
+  "version": "1.0.0",
+  "description": "Real-time dynamic alert visualization map using public alert feeds",
+  "private": true,
+  "workspaces": [
+    "packages/backend",
+    "packages/frontend"
+  ],
+  "scripts": {
+    "dev": "concurrently -n \"backend,frontend\" -c \"cyan,magenta\" \"npm run dev -w packages/backend\" \"npm run dev -w packages/frontend\"",
+    "build": "npm run build -w packages/backend && npm run build -w packages/frontend",
+    "test": "npm run test -w packages/backend",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f",
+    "setup": "npm install && npm run docker:up && sleep 8 && npm run migrate -w packages/backend && npm run seed -w packages/backend",
+    "clean": "rm -rf packages/backend/dist packages/frontend/.next"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

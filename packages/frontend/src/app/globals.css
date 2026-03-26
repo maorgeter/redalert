@@ -1,0 +1,424 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Hebrew / RTL base ──────────────────────────────────────────────────── */
+html {
+  direction: rtl;
+  text-align: right;
+}
+
+html[dir="rtl"] {
+  text-align: right;
+}
+
+body {
+  font-family: var(--font-heebo), 'Heebo', system-ui, sans-serif;
+  overflow-x: hidden;
+  direction: rtl;
+}
+
+/* Ensure all flex containers inherit RTL direction properly */
+* {
+  unicode-bidi: inherit;
+}
+
+/* Numbers and times that should remain LTR even in RTL context */
+.ltr-num {
+  direction: ltr;
+  display: inline-block;
+  unicode-bidi: embed;
+}
+
+/* ─── Broadcast keyframe animations ─────────────────────────────────────── */
+
+@keyframes live-dot {
+  0%, 100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.55);
+  }
+  60% {
+    opacity: 0.9;
+    box-shadow: 0 0 0 6px rgba(220, 38, 38, 0);
+  }
+}
+
+@keyframes live-ring {
+  0% { transform: scale(1); opacity: 0.7; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+
+/* RTL-aware slide-in: slides from the right (start direction in RTL) */
+@keyframes event-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes count-flash {
+  0%   { background-color: rgba(220, 38, 38, 0.08); }
+  30%  { background-color: rgba(220, 38, 38, 0.22); }
+  100% { background-color: rgba(220, 38, 38, 0.08); }
+}
+
+@keyframes badge-pop {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.18); }
+  100% { transform: scale(1); }
+}
+
+@keyframes status-connecting {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+@keyframes panel-fade-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── Live dot & ring ────────────────────────────────────────────────────── */
+.live-dot {
+  animation: live-dot 2s ease-in-out infinite;
+  border-radius: 50%;
+}
+
+.live-dot-ring {
+  animation: live-ring 2s ease-out infinite;
+  border-radius: 50%;
+  position: absolute;
+  inset: 0;
+}
+
+/* ─── Event entry animation ──────────────────────────────────────────────── */
+.event-new {
+  animation: event-slide-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* ─── Count flash ────────────────────────────────────────────────────────── */
+.count-flash {
+  animation: count-flash 0.8s ease-out forwards;
+}
+
+.badge-pop {
+  animation: badge-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* ─── Status connecting blink ────────────────────────────────────────────── */
+.status-connecting {
+  animation: status-connecting 1.2s ease-in-out infinite;
+}
+
+/* ─── Collapsible section ────────────────────────────────────────────────── */
+.section-body {
+  overflow: hidden;
+  transition: max-height 0.22s cubic-bezier(0.4, 0, 0.2, 1),
+              opacity 0.18s ease;
+}
+
+.section-body.collapsed {
+  max-height: 0 !important;
+  opacity: 0;
+}
+
+/* ─── MapLibre GL overrides ──────────────────────────────────────────────── */
+.maplibregl-map {
+  font-family: var(--font-heebo), system-ui, sans-serif;
+}
+
+/* Navigation controls */
+.maplibregl-ctrl-group {
+  background: rgba(255, 255, 255, 0.96) !important;
+  border: 1px solid rgba(203, 213, 225, 0.9) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.08) !important;
+}
+
+.maplibregl-ctrl-group button {
+  background-color: transparent !important;
+  border-color: rgba(203, 213, 225, 0.5) !important;
+  color: #334155 !important;
+}
+
+.maplibregl-ctrl-group button:hover {
+  background-color: rgba(241, 245, 249, 0.9) !important;
+}
+
+/* Popups */
+.maplibregl-popup-content {
+  background: rgba(255, 255, 255, 0.98) !important;
+  border: 1px solid rgba(226, 232, 240, 0.9) !important;
+  border-radius: 10px !important;
+  padding: 0 !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.13), 0 2px 8px rgba(0, 0, 0, 0.06) !important;
+  direction: rtl;
+  font-family: var(--font-heebo), system-ui, sans-serif;
+  overflow: hidden;
+}
+
+.maplibregl-popup-tip {
+  border-top-color: rgba(255, 255, 255, 0.98) !important;
+}
+
+.maplibregl-popup-close-button {
+  color: rgba(100, 116, 139, 1) !important;
+  right: auto !important;
+  left: 8px !important;
+  top: 8px !important;
+  font-size: 18px !important;
+  line-height: 1 !important;
+  z-index: 1;
+}
+
+/* ─── Map popup broadcast styles ─────────────────────────────────────────── */
+.map-popup {
+  font-size: 12px;
+  line-height: 1.5;
+  min-width: 180px;
+  direction: rtl;
+  text-align: right;
+}
+
+.popup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px 8px;
+  border-bottom: 1px solid rgba(241, 245, 249, 1);
+}
+
+.popup-area-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: -0.01em;
+}
+
+.popup-live-badge {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #dc2626;
+  text-transform: uppercase;
+}
+
+.popup-est-badge {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #b45309;
+  background: rgba(251, 191, 36, 0.12);
+  border: 1px solid rgba(217, 119, 6, 0.25);
+  border-radius: 4px;
+  padding: 2px 6px;
+}
+
+.popup-body {
+  padding: 8px 12px 10px;
+}
+
+.popup-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 2.5px 0;
+}
+
+.popup-label {
+  color: #94a3b8;
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.popup-value {
+  color: #1e293b;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.popup-value.severity-critical { color: #dc2626; }
+.popup-value.severity-high     { color: #ea580c; }
+.popup-value.severity-medium   { color: #ca8a04; }
+.popup-value.severity-low      { color: #2563eb; }
+
+.popup-disclaimer {
+  padding: 7px 12px;
+  border-top: 1px solid rgba(254, 243, 199, 1);
+  background: rgba(255, 251, 235, 0.8);
+  font-size: 9.5px;
+  color: #92400e;
+  line-height: 1.4;
+}
+
+/* ─── Scrollbar ──────────────────────────────────────────────────────────── */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(203, 213, 225, 0.7) transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar { width: 3px; }
+.scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: rgba(203, 213, 225, 0.7);
+  border-radius: 2px;
+}
+
+/* ─── Scale control ─────────────────────────────────────────────────────── */
+.maplibregl-ctrl-scale {
+  background: rgba(255, 255, 255, 0.92) !important;
+  border-color: rgba(203, 213, 225, 0.8) !important;
+  color: rgba(100, 116, 139, 1) !important;
+  font-size: 10px !important;
+  border-radius: 4px !important;
+}
+
+/* ─── Mobile safe area ──────────────────────────────────────────────────── */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* ─── Bottom sheet animation ─────────────────────────────────────────────── */
+.sheet-enter {
+  transform: translateY(0);
+  transition: transform 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.sheet-exit {
+  transform: translateY(100%);
+  transition: transform 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* ─── Touch targets (mobile) ─────────────────────────────────────────────── */
+@media (max-width: 767px) {
+  button, [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  .mobile-nav-btn {
+    min-height: 56px;
+  }
+}
+
+/* ─── Section typography ─────────────────────────────────────────────────── */
+.section-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+/* ─── Alert type event row borders (RTL: right border = visual start) ─────── */
+.event-type-red-alert {
+  border-right: 3px solid #dc2626;
+}
+
+.event-type-warning {
+  border-right: 3px solid #ea580c;
+}
+
+.event-type-all-clear {
+  border-right: 3px solid #16a34a;
+}
+
+/* ─── Map popup RTL overrides ────────────────────────────────────────────── */
+.map-popup,
+.map-popup * {
+  direction: rtl;
+  text-align: right;
+}
+
+.popup-row {
+  flex-direction: row-reverse;
+}
+
+/* Ensure the close button in RTL map popups is on correct side */
+.maplibregl-popup-close-button {
+  right: auto !important;
+  left: 6px !important;
+  top: 6px !important;
+}
+
+/* ─── Diagnostics panel ──────────────────────────────────────────────────── */
+.diag-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 3px 0;
+  direction: rtl;
+}
+
+.diag-label {
+  font-size: 10px;
+  color: #94a3b8;
+  flex: 1;
+}
+
+.diag-value {
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #1e293b;
+}
+
+/* ─── Filter tabs ────────────────────────────────────────────────────────── */
+.filter-tab {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 9999px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.filter-tab-all {
+  background: #f1f5f9;
+  color: #475569;
+  border-color: #e2e8f0;
+}
+.filter-tab-all.active {
+  background: #1e293b;
+  color: #fff;
+  border-color: #1e293b;
+}
+
+.filter-tab-red {
+  background: #fff1f2;
+  color: #b91c1c;
+  border-color: #fecaca;
+}
+.filter-tab-red.active {
+  background: #dc2626;
+  color: #fff;
+  border-color: #dc2626;
+}
+
+.filter-tab-warning {
+  background: #fff7ed;
+  color: #c2410c;
+  border-color: #fed7aa;
+}
+.filter-tab-warning.active {
+  background: #ea580c;
+  color: #fff;
+  border-color: #ea580c;
+}
+
+.filter-tab-clear {
+  background: #f0fdf4;
+  color: #15803d;
+  border-color: #bbf7d0;
+}
+.filter-tab-clear.active {
+  background: #16a34a;
+  color: #fff;
+  border-color: #16a34a;
+}
