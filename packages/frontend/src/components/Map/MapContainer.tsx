@@ -4,7 +4,7 @@ import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { useAlertStore } from '@/store/alertStore'
 import { useMapStore } from '@/store/mapStore'
-import { AlertStatus, AlertType, SEVERITY_HE, CATEGORY_HE, ALERT_TYPE_HE } from '@/types'
+import { AlertStatus, AlertType, AlertCategory, SEVERITY_HE, CATEGORY_HE, ALERT_TYPE_HE } from '@/types'
 import type { AlertEvent } from '@/types'
 
 // ─── RTL text plugin ─────────────────────────────────────────────────────────
@@ -104,21 +104,6 @@ function polygonCentroid(
   } catch { return null }
 }
 
-// Haversine great-circle distance in km between two [lng, lat] points
-function haversineKm(a: [number, number], b: [number, number]): number {
-  const R = 6371
-  const dLat = (b[1] - a[1]) * Math.PI / 180
-  const dLng = (b[0] - a[0]) * Math.PI / 180
-  const sinH = Math.sin(dLat / 2) ** 2 +
-    Math.cos(a[1] * Math.PI / 180) * Math.cos(b[1] * Math.PI / 180) *
-    Math.sin(dLng / 2) ** 2
-  return 2 * R * Math.asin(Math.sqrt(sinH))
-}
-
-// Maximum distance (km) for two alert nodes to be considered neighbours and
-// connected by a graph edge.  80 km covers same-region adjacency in Israel.
-const NEIGHBOR_KM = 80
-
 // ─── Hebrew label override ───────────────────────────────────────────────────
 // OpenFreeMap liberty ships a single glyph set named 'Noto Sans Regular' which
 // already contains the Hebrew Unicode block — 'Noto Sans Hebrew Regular' is NOT
@@ -211,7 +196,6 @@ function zonePopupHtml(props: Record<string, string | number>): string {
 }
 
 // ─── Animation state types ───────────────────────────────────────────────────
-interface Ripple { id: string; center: [number, number]; startTime: number }
 interface ClearingNode { id: string; center: [number, number]; cityHe: string; startTime: number }
 
 const ALL_CLEAR_VISIBLE_MS  = 10_000  // total display window for ALL_CLEAR nodes
@@ -228,8 +212,6 @@ export default function MapContainer() {
   const dashStepRef        = useRef(0)
   const lastDashTimeRef    = useRef(0)
   const animFrameRef       = useRef<number | null>(null)
-  const ripplesRef         = useRef<Ripple[]>([])
-  const rippleClearRef     = useRef(false) // flag: clear ripple source next frame
   const clearingNodesRef   = useRef<ClearingNode[]>([])
   const clearingTrackedRef = useRef(new Set<string>()) // ids already managed in clearingNodesRef
   const flashTimeRef       = useRef<number | null>(null)
@@ -329,12 +311,10 @@ export default function MapContainer() {
     const pairs: [string, boolean][] = [
       ['geofences-fill',       layerVisibility.geofences],
       ['geofences-line',       layerVisibility.geofences],
-      ['alert-edges-glow',     layerVisibility.activeAlerts],
-      ['alert-edges-line',     layerVisibility.activeAlerts],
       ['active-alerts-glow',   layerVisibility.activeAlerts],
-      ['active-alerts-line',   layerVisibility.activeAlerts],
       ['alert-labels',         layerVisibility.activeAlerts],
       ['alert-node-core',      layerVisibility.activeAlerts],
+      ['ripple-line',          layerVisibility.activeAlerts],
       ['clearing-glow',        layerVisibility.activeAlerts],
       ['clearing-core',        layerVisibility.activeAlerts],
       ['clearing-labels',      layerVisibility.activeAlerts],
@@ -429,27 +409,6 @@ export default function MapContainer() {
       'all_clear', '#14532d',
       '#7f1d1d',
     ]
-
-    // ── Graph edges ─────────────────────────────────────────────────────────
-    // Drawn below nodes so they appear "behind" the glowing circles.
-    // Two layers: a thick blur for the neon glow, then a crisp 1-px line.
-
-    // Outer glow of each edge
-    m.addLayer({ id: 'alert-edges-glow', type: 'line', source: 'alert-edges',
-      paint: {
-        'line-color': COLORS.redAlert,
-        'line-width': 8,
-        'line-blur':  4,
-        'line-opacity': 0.18,
-      } })
-
-    // Sharp centre line — thin, high contrast
-    m.addLayer({ id: 'alert-edges-line', type: 'line', source: 'alert-edges',
-      paint: {
-        'line-color':   '#ff6b6b',
-        'line-width':   1,
-        'line-opacity': 0.55,
-      } })
 
     // ── Node layers ──────────────────────────────────────────────────────────
     // Large outer glow (pulsing radius/opacity in RAF)
@@ -618,44 +577,47 @@ export default function MapContainer() {
         }
       }
 
-      // Ripple animation
-      if (ripplesRef.current.length > 0) {
-        const features: GeoJSON.Feature[] = []
-        const alive: Ripple[] = []
+      // ── Continuous sonar rings ────────────────────────────────────────────
+      // Red rings emanate continuously from active threat nodes;
+      // green rings emanate from category-13 clearing nodes (fade-matched).
+      {
+        const sonarFeatures: GeoJSON.Feature[] = []
+        const ringStep = SONAR_PERIOD_MS / RIPPLE_RINGS
 
-        for (const ripple of ripplesRef.current) {
-          const elapsed = now - ripple.startTime
-          if (elapsed >= SONAR_PERIOD_MS) continue
-          alive.push(ripple)
-
-          const ringOffset = SONAR_PERIOD_MS / RIPPLE_RINGS
+        for (const center of activeNodesRef.current) {
           for (let ring = 0; ring < RIPPLE_RINGS; ring++) {
-            const ringElapsed = elapsed - ring * ringOffset
-            if (ringElapsed <= 0) continue
-            const progress = Math.min(1, ringElapsed / SONAR_PERIOD_MS)
-            const eased = 1 - (1 - progress) ** 2 // ease-out
-            const radius = eased * RIPPLE_MAX_KM
-            const opacity = Math.max(0, 0.7 * (1 - progress) ** 1.5)
-            if (radius < 0.5 || opacity < 0.01) continue
-
-            const circle = makeCirclePolygon(ripple.center, radius, 40)
-            circle.properties = { opacity, ringId: `${ripple.id}-r${ring}` }
-            features.push(circle)
+            const phase = (now + ring * ringStep) % SONAR_PERIOD_MS
+            const progress = phase / SONAR_PERIOD_MS
+            const radius = progress * RIPPLE_MAX_KM
+            const opacity = Math.max(0, (1 - progress) ** 1.5 * 0.65)
+            if (radius < 0.3 || opacity < 0.01) continue
+            const circle = makeCirclePolygon(center, radius, 36)
+            circle.properties = { opacity, color: COLORS.ripple }
+            sonarFeatures.push(circle)
           }
         }
 
-        ripplesRef.current = alive
-        ;(m.getSource('ripples') as maplibregl.GeoJSONSource | undefined)
-          ?.setData({ type: 'FeatureCollection', features })
+        for (const node of clearingNodesRef.current) {
+          const elapsed = now - node.startTime
+          const t = elapsed - ALL_CLEAR_FADE_START_MS
+          const nodeFade = t <= 0 ? 1 : Math.max(0, 1 - t / (ALL_CLEAR_VISIBLE_MS - ALL_CLEAR_FADE_START_MS))
+          for (let ring = 0; ring < RIPPLE_RINGS; ring++) {
+            const phase = (now + ring * ringStep) % SONAR_PERIOD_MS
+            const progress = phase / SONAR_PERIOD_MS
+            const radius = progress * RIPPLE_MAX_KM
+            const opacity = Math.max(0, (1 - progress) ** 1.5 * 0.60 * nodeFade)
+            if (radius < 0.3 || opacity < 0.01) continue
+            const circle = makeCirclePolygon(node.center, radius, 36)
+            circle.properties = { opacity, color: COLORS.allClear }
+            sonarFeatures.push(circle)
+          }
+        }
 
-        if (alive.length === 0) rippleClearRef.current = true
-      } else if (rippleClearRef.current) {
-        rippleClearRef.current = false
         ;(m.getSource('ripples') as maplibregl.GeoJSONSource | undefined)
-          ?.setData({ type: 'FeatureCollection', features: [] })
+          ?.setData({ type: 'FeatureCollection', features: sonarFeatures })
       }
 
-      // ── ALL_CLEAR clearing nodes — green, fade out after 10 s ────────────
+      // ── Category-13 clearing nodes — green, fade out after 10 s ──────────
       if (clearingNodesRef.current.length > 0) {
         const clearFeatures: GeoJSON.Feature[] = []
         const aliveClearing: ClearingNode[] = []
@@ -706,35 +668,30 @@ export default function MapContainer() {
       // Flash only for non-ALL_CLEAR events (actual threats)
       const hasThreat = newIds.some(id => {
         const ev = allEvents.find(e => e.id === id)
-        return ev && ev.alertType !== AlertType.ALL_CLEAR
+        return ev && ev.category !== AlertCategory.EVENT_ENDED && ev.alertType !== AlertType.ALL_CLEAR
       })
       if (hasThreat) flashTimeRef.current = Date.now()
 
-      let rippleCount = 0
       for (const id of newIds) {
         const ev = allEvents.find(e => e.id === id)
         if (!ev) continue
+        const isClearEvent = ev.category === AlertCategory.EVENT_ENDED || ev.alertType === AlertType.ALL_CLEAR
+        if (!isClearEvent) continue // continuous sonar handles threat nodes automatically
         const feat = findGeofenceFeature(gf, ev.areaName, ev.geofenceId)
         if (!feat) continue
         const center = polygonCentroid(feat as GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>)
         if (!center) continue
 
-        if (ev.alertType === AlertType.ALL_CLEAR) {
-          // ALL_CLEAR: add to clearing nodes for 10-second green fade-out
-          if (!clearingTrackedRef.current.has(id)) {
-            const fProps = feat.properties as Record<string, string> | null
-            clearingNodesRef.current.push({
-              id,
-              center,
-              cityHe: fProps?.nameHe ?? ev.areaName,
-              startTime: Date.now(),
-            })
-            clearingTrackedRef.current.add(id)
-          }
-        } else if (rippleCount < 4) {
-          // Threat: ripple animation
-          ripplesRef.current.push({ id: `${id}-${Date.now()}`, center, startTime: Date.now() })
-          rippleCount++
+        // Category-13 / all-clear: add to clearing nodes for green fade-out
+        if (!clearingTrackedRef.current.has(id)) {
+          const fProps = feat.properties as Record<string, string> | null
+          clearingNodesRef.current.push({
+            id,
+            center,
+            cityHe: fProps?.nameHe ?? ev.areaName,
+            startTime: Date.now(),
+          })
+          clearingTrackedRef.current.add(id)
         }
       }
     }
@@ -810,8 +767,8 @@ export default function MapContainer() {
     const heatmapPoints: GeoJSON.Feature[] = []
 
     for (const event of activeEvents) {
-      // ALL_CLEAR events are handled separately by clearingNodesRef (10-second green fade-out)
-      if (event.alertType === AlertType.ALL_CLEAR) continue
+      // Category-13 and all_clear events are handled by clearingNodesRef (green fade-out)
+      if (event.category === AlertCategory.EVENT_ENDED || event.alertType === AlertType.ALL_CLEAR) continue
 
       const feat = findGeofenceFeature(gf, event.areaName, event.geofenceId)
       if (!feat) {
@@ -852,30 +809,15 @@ export default function MapContainer() {
       }
     }
 
-    // ── Graph edges: connect nearby alert nodes ─────────────────────────────
-    // O(n²) over active alerts — fine for typical counts (<30 simultaneous).
-    const edgeFeatures: GeoJSON.Feature[] = []
-    for (let i = 0; i < heatmapPoints.length; i++) {
-      for (let j = i + 1; j < heatmapPoints.length; j++) {
-        const a = (heatmapPoints[i].geometry as GeoJSON.Point).coordinates as [number, number]
-        const b = (heatmapPoints[j].geometry as GeoJSON.Point).coordinates as [number, number]
-        const dist = haversineKm(a, b)
-        if (dist <= NEIGHBOR_KM) {
-          edgeFeatures.push({
-            type: 'Feature',
-            properties: { distKm: Math.round(dist) },
-            geometry: { type: 'LineString', coordinates: [a, b] },
-          })
-        }
-      }
-    }
+    // Update active node centers for continuous sonar (excludes cat-13/all-clear)
+    activeNodesRef.current = heatmapPoints.map(
+      f => (f.geometry as GeoJSON.Point).coordinates as [number, number]
+    )
 
     ;(m.getSource('active-alerts') as maplibregl.GeoJSONSource | undefined)
       ?.setData({ type: 'FeatureCollection', features: activeFeatures })
     ;(m.getSource('heatmap-points') as maplibregl.GeoJSONSource | undefined)
       ?.setData({ type: 'FeatureCollection', features: heatmapPoints })
-    ;(m.getSource('alert-edges') as maplibregl.GeoJSONSource | undefined)
-      ?.setData({ type: 'FeatureCollection', features: edgeFeatures })
   }
 
   const updateZonesSources = () => {
@@ -926,11 +868,7 @@ export default function MapContainer() {
       if (p?.eventId) { selectGeofence(p.eventId); setInspectorOpen(true) }
     }
 
-    m.on('mouseenter', 'active-alerts-line', showAlertPopup)
-    m.on('mouseleave', 'active-alerts-line', hideAlertPopup)
-    m.on('click',      'active-alerts-line', clickAlert)
-
-    // Also respond to clicks directly on the label node
+    // Respond to clicks on the node core
     m.on('mouseenter', 'alert-node-core', showAlertPopup)
     m.on('mouseleave', 'alert-node-core', hideAlertPopup)
     m.on('click',      'alert-node-core', clickAlert)
