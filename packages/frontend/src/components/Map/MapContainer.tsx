@@ -7,6 +7,18 @@ import { useMapStore } from '@/store/mapStore'
 import { AlertStatus, AlertType, SEVERITY_HE, CATEGORY_HE, ALERT_TYPE_HE } from '@/types'
 import type { AlertEvent } from '@/types'
 
+// ─── RTL text plugin ─────────────────────────────────────────────────────────
+// Must be registered once, before any Map is instantiated.
+// Without this, MapLibre renders Hebrew/Arabic characters in LTR order (reversed).
+// The plugin uses a WASM bidirectional text shaper (ICU-based).
+// typeof window guard: Next.js evaluates 'use client' modules on the server too.
+if (typeof window !== 'undefined') {
+  maplibregl.setRTLTextPlugin(
+    'https://unpkg.com/@maplibre/maplibre-gl-rtl-text@0.3.0/maplibre-gl-rtl-text.min.js',
+    true  // lazy = only load the WASM when RTL glyphs are first needed
+  ).catch(() => { /* non-critical — map still works, Hebrew labels may appear reversed */ })
+}
+
 // ─── Map style ───────────────────────────────────────────────────────────────
 // OpenFreeMap liberty = free vector tiles with Hebrew name support (name:he field)
 // MapTiler streets-v2 = paid, higher quality, also Hebrew-capable
@@ -93,15 +105,24 @@ function polygonCentroid(
 }
 
 // ─── Hebrew label override ───────────────────────────────────────────────────
+// Switches every symbol layer to prefer name:he (Hebrew) with a font stack that
+// covers the Hebrew Unicode block (U+0590–U+05FF).
+// OpenFreeMap liberty ships Noto Sans / Noto Sans Hebrew SDF glyphs.
+// MapTiler streets-v2 ships the same Noto stack — both are compatible.
+const HEBREW_FONT_STACK = ['Noto Sans Hebrew Regular', 'Noto Sans Regular']
+
 function applyHebrewLabels(m: maplibregl.Map): void {
   try {
     for (const layer of m.getStyle()?.layers ?? []) {
       if (layer.type !== 'symbol') continue
       try {
         if (m.getLayoutProperty(layer.id, 'text-field')) {
+          // Prefer Hebrew name; fall back to generic name
           m.setLayoutProperty(layer.id, 'text-field', [
             'coalesce', ['get', 'name:he'], ['get', 'name'],
           ])
+          // Override font stack so Hebrew Unicode block renders correctly
+          m.setLayoutProperty(layer.id, 'text-font', HEBREW_FONT_STACK)
         }
       } catch { /* some layers resist override — skip */ }
     }
