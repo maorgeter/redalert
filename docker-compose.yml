@@ -20,7 +20,7 @@ services:
 
   backend:
     build:
-      context: .  # התיקון כאן: הופך את כל הפרויקט לזמין ל-Docker
+      context: .
       dockerfile: packages/backend/Dockerfile
     container_name: alertmap-backend
     depends_on:
@@ -28,6 +28,7 @@ services:
         condition: service_healthy
     environment:
       PORT: 3001
+      NODE_ENV: production
       DB_HOST: postgres
       DB_PORT: 5432
       DB_NAME: alertmap
@@ -38,24 +39,27 @@ services:
       CORS_ORIGIN: 'http://localhost:3000'
     ports:
       - '3001:3001'
+    # Path must match container WORKDIR (/app/packages/backend) + data subfolder.
+    # The old path /app/data was wrong and caused geofences to fail to load.
     volumes:
-      - ./packages/backend/data:/app/data:ro
+      - ./packages/backend/data:/app/packages/backend/data:ro
     restart: unless-stopped
 
   frontend:
     build:
-      context: .  # גם כאן: ה-context הוא השורש
+      context: .
       dockerfile: packages/frontend/Dockerfile
-      # מוסיף את ה-Build Args שקלוד הגדיר ב-Dockerfile
+      # NEXT_PUBLIC_* vars are baked into the JS bundle at build time.
+      # They must be provided as build args — the runtime environment block
+      # below cannot override values already compiled into the bundle.
       args:
-        - NEXT_PUBLIC_BACKEND_URL=http://localhost:3001
-        - NEXT_PUBLIC_WS_URL=ws://localhost:3001
+        NEXT_PUBLIC_BACKEND_URL: http://localhost:3001
+        NEXT_PUBLIC_WS_URL: ws://localhost:3001
     container_name: alertmap-frontend
     depends_on:
       - backend
     environment:
-      NEXT_PUBLIC_BACKEND_URL: http://localhost:3000 # לוקאלית הפרונט עובר דרך ה-proxy של Next
-      NEXT_PUBLIC_WS_URL: ws://localhost:3001
+      NODE_ENV: production
     ports:
       - '3000:3000'
     restart: unless-stopped
