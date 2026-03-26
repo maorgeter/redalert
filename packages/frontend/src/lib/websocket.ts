@@ -19,7 +19,9 @@ export class AlertWebSocket {
 
   connect(): void {
     if (this.ws?.readyState === WebSocket.OPEN) return
-    this.ws = new WebSocket(`${WS_URL}/ws`)
+    const endpoint = `${WS_URL}/ws`
+    console.log(`[WebSocket] connecting to ${endpoint}`)
+    this.ws = new WebSocket(endpoint)
 
     this.ws.onopen = () => {
       this.reconnectAttempt = 0

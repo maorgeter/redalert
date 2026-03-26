@@ -13,10 +13,12 @@ import type { AlertEvent } from '@/types'
 // The plugin uses a WASM bidirectional text shaper (ICU-based).
 // typeof window guard: Next.js evaluates 'use client' modules on the server too.
 if (typeof window !== 'undefined') {
+  // Served from public/ — no network dependency, no CDN 404 risk.
+  // File: @mapbox/mapbox-gl-rtl-text@0.2.3 (the build MapLibre 4.x expects).
   maplibregl.setRTLTextPlugin(
-    'https://unpkg.com/@maplibre/maplibre-gl-rtl-text@0.3.0/maplibre-gl-rtl-text.min.js',
-    true  // lazy = only load the WASM when RTL glyphs are first needed
-  ).catch(() => { /* non-critical — map still works, Hebrew labels may appear reversed */ })
+    '/maplibre-gl-rtl-text.min.js',
+    false  // not lazy — load immediately so Hebrew renders on first tile
+  ).catch(() => { /* already loaded, or non-critical */ })
 }
 
 // ─── Map style ───────────────────────────────────────────────────────────────
@@ -382,14 +384,12 @@ export default function MapContainer() {
       COLORS.redAlertBorder,
     ]
 
-    // Active alert soft glow
+    // Active alert soft glow — wide, semi-transparent fill; opacity pulsed by RAF loop.
+    // fill-blur is NOT a valid MapLibre paint property (removed to fix console error).
     m.addLayer({ id: 'active-alerts-glow', type: 'fill', source: 'active-alerts',
       paint: {
         'fill-color': alertFillColor,
-        'fill-opacity': 0.1,
-        'fill-antialias': false,
-        // @ts-ignore — fill-blur is valid in MapLibre GL JS
-        'fill-blur': 20,
+        'fill-opacity': 0.08,
       } })
 
     // Active alert main fill (pulsing opacity via animation loop)
