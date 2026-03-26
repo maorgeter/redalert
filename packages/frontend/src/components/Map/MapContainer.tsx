@@ -20,12 +20,9 @@ if (typeof window !== 'undefined') {
 }
 
 // ─── Map style ───────────────────────────────────────────────────────────────
-// OpenFreeMap liberty = free vector tiles with Hebrew name support (name:he field)
-// MapTiler streets-v2 = paid, higher quality, also Hebrew-capable
-const MAPTILER_KEY = process.env.NEXT_PUBLIC_MAPTILER_KEY
-const MAP_STYLE = MAPTILER_KEY
-  ? `https://api.maptiler.com/maps/streets-v2/style.json?key=${MAPTILER_KEY}`
-  : 'https://tiles.openfreemap.org/styles/liberty'
+// OpenFreeMap liberty: free, vector tiles, ships Noto Sans Regular SDF glyphs
+// which cover the Hebrew Unicode block — no API key required.
+const MAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty'
 
 const ISRAEL_CENTER: [number, number] = [34.85, 31.5]
 const ISRAEL_ZOOM = 7.5
@@ -105,19 +102,19 @@ function polygonCentroid(
 }
 
 // ─── Hebrew label override ───────────────────────────────────────────────────
-// Switches every symbol layer to prefer name:he (Hebrew) with a font stack that
-// covers the Hebrew Unicode block (U+0590–U+05FF).
-// OpenFreeMap liberty ships Noto Sans / Noto Sans Hebrew SDF glyphs.
-// MapTiler streets-v2 ships the same Noto stack — both are compatible.
-const HEBREW_FONT_STACK = ['Noto Sans Hebrew Regular', 'Noto Sans Regular']
+// OpenFreeMap liberty ships a single glyph set named 'Noto Sans Regular' which
+// already contains the Hebrew Unicode block — 'Noto Sans Hebrew Regular' is NOT
+// a separate entry on their glyph server and will cause a 404/fallback.
+// The RTL plugin handles the bidi reordering; the font just needs the glyphs.
+const HEBREW_FONT_STACK = ['Noto Sans Regular']
 
 function applyHebrewLabels(m: maplibregl.Map): void {
+  let updated = 0
   try {
     for (const layer of m.getStyle()?.layers ?? []) {
       if (layer.type !== 'symbol') continue
       try {
-        // Use 'layout' from the style spec directly — more reliable than
-        // getLayoutProperty() which can return undefined even when a field exists.
+        // Read from the style spec directly — more reliable than getLayoutProperty()
         const layout = (layer as maplibregl.SymbolLayerSpecification).layout ?? {}
         if (!('text-field' in layout)) continue
 
@@ -125,11 +122,13 @@ function applyHebrewLabels(m: maplibregl.Map): void {
         m.setLayoutProperty(layer.id, 'text-field', [
           'coalesce', ['get', 'name:he'], ['get', 'name'],
         ])
-        // Force Noto Sans Hebrew so Hebrew Unicode block (U+0590–U+05FF) renders
+        // Noto Sans Regular on OpenFreeMap includes Hebrew glyphs (U+0590–U+05FF)
         m.setLayoutProperty(layer.id, 'text-font', HEBREW_FONT_STACK)
+        updated++
       } catch { /* individual layer errors are non-fatal */ }
     }
   } catch { /* non-critical */ }
+  console.log(`[MapContainer] applyHebrewLabels: updated ${updated} symbol layers`)
 }
 
 // ─── Popup HTML (direction: rtl set in CSS .map-popup) ───────────────────────
