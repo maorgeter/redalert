@@ -305,7 +305,7 @@ export default function MapContainer() {
       ['geofences-fill',       layerVisibility.geofences],
       ['geofences-line',       layerVisibility.geofences],
       ['active-alerts-glow',   layerVisibility.activeAlerts],
-      ['active-alerts-fill',   layerVisibility.activeAlerts],
+      ['alert-labels',         layerVisibility.activeAlerts],
       ['active-alerts-line',   layerVisibility.activeAlerts],
       ['fading-fill',          layerVisibility.activeAlerts],
       ['heatmap-layer',        layerVisibility.activeAlerts],
@@ -374,14 +374,7 @@ export default function MapContainer() {
         ],
       } })
 
-    // Data-driven fill color by alertType
-    const alertFillColor: maplibregl.ExpressionSpecification = [
-      'match', ['get', 'alertType'],
-      'red_alert', COLORS.redAlert,
-      'warning',   COLORS.warning,
-      'all_clear', COLORS.allClear,
-      COLORS.redAlert,
-    ]
+    // Data-driven colors by alertType (used for border and glow)
     const alertBorderColor: maplibregl.ExpressionSpecification = [
       'match', ['get', 'alertType'],
       'red_alert', COLORS.redAlertBorder,
@@ -389,26 +382,60 @@ export default function MapContainer() {
       'all_clear', COLORS.allClearBorder,
       COLORS.redAlertBorder,
     ]
+    const glowColor: maplibregl.ExpressionSpecification = [
+      'match', ['get', 'alertType'],
+      'red_alert', COLORS.redAlert,
+      'warning',   COLORS.warning,
+      'all_clear', COLORS.allClear,
+      COLORS.redAlert,
+    ]
+    const haloColor: maplibregl.ExpressionSpecification = [
+      'match', ['get', 'alertType'],
+      'red_alert', '#7f1d1d',
+      'warning',   '#431407',
+      'all_clear', '#14532d',
+      '#7f1d1d',
+    ]
 
-    // Active alert soft glow — circle layer on centroid points with circle-blur.
-    // Must use a point source; fill layers don't support blur in MapLibre GL.
-    // heatmap-points already contains one point per active alert centroid.
+    // Pulsing glow circle at alert centroid — color matches alert type.
+    // Radius and opacity are animated each RAF frame.
     m.addLayer({ id: 'active-alerts-glow', type: 'circle', source: 'heatmap-points',
       paint: {
-        'circle-color': COLORS.redAlert,
-        'circle-radius': 80,
-        'circle-blur': 1.2,
-        'circle-opacity': 0.12,
+        'circle-color': glowColor,
+        'circle-radius': 90,
+        'circle-blur': 1.4,
+        'circle-opacity': 0.15,
         'circle-pitch-alignment': 'map',
       } })
 
-    // Active alert main fill (pulsing opacity via animation loop)
-    m.addLayer({ id: 'active-alerts-fill', type: 'fill', source: 'active-alerts',
-      paint: { 'fill-color': alertFillColor, 'fill-opacity': 0.38 } })
+    // Hebrew city name label at alert centroid.
+    // Replaces the solid fill polygon — instead the geofence border provides
+    // the geographic outline and the label gives immediate context.
+    m.addLayer({
+      id: 'alert-labels',
+      type: 'symbol',
+      source: 'heatmap-points',
+      layout: {
+        'text-field': ['coalesce', ['get', 'city_he'], ['get', 'city_name']],
+        'text-font': HEBREW_FONT_STACK,
+        'text-size': 16,
+        'text-anchor': 'center',
+        'text-allow-overlap': true,
+        'text-ignore-placement': true,
+        'text-padding': 0,
+      },
+      paint: {
+        'text-color': '#ffffff',
+        'text-halo-color': haloColor,
+        'text-halo-width': 2.5,
+        'text-halo-blur': 0.5,
+        'text-opacity': 1,
+      },
+    })
 
-    // Active alert border
+    // Active alert border — thin outline of the geofence polygon for context
     m.addLayer({ id: 'active-alerts-line', type: 'line', source: 'active-alerts',
-      paint: { 'line-color': alertBorderColor, 'line-width': 2.5, 'line-opacity': 0.95 } })
+      paint: { 'line-color': alertBorderColor, 'line-width': 2, 'line-opacity': 0.85 } })
 
     // Ripple rings (line only for clean look)
     m.addLayer({ id: 'ripple-line', type: 'line', source: 'ripples',
@@ -440,13 +467,13 @@ export default function MapContainer() {
         }
       }
 
-      // Active alert pulse
-      const base = 0.30 + 0.10 * sin
-      if (m.getLayer('active-alerts-fill'))
-        m.setPaintProperty('active-alerts-fill', 'fill-opacity', Math.min(0.88, base + flashBoost))
+      // Active alert pulse — glow circle + label text breathe in sync
       if (m.getLayer('active-alerts-glow'))
         m.setPaintProperty('active-alerts-glow', 'circle-opacity',
-          Math.min(0.35, 0.08 + 0.05 * sin + flashBoost * 0.25))
+          Math.min(0.55, 0.15 + 0.10 * sin + flashBoost * 0.40))
+      if (m.getLayer('alert-labels'))
+        m.setPaintProperty('alert-labels', 'text-opacity',
+          Math.min(1.0, 0.78 + 0.22 * Math.abs(sin) + flashBoost * 0.22))
 
       // Estimated zone pulse (slightly offset phase for organic feel)
       if (m.getLayer('estimated-zones-fill'))
@@ -636,9 +663,15 @@ export default function MapContainer() {
 
       const center = polygonCentroid(feat as GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>)
       if (center) {
+        const props = feat.properties as Record<string, string> | null
         heatmapPoints.push({
           type: 'Feature',
-          properties: { weight: Math.min(1, (event.provenance?.length ?? 1) * 0.5) || 0.5 },
+          properties: {
+            weight:    Math.min(1, (event.provenance?.length ?? 1) * 0.5) || 0.5,
+            city_he:   props?.nameHe   ?? event.areaName,
+            city_name: props?.name     ?? event.areaName,
+            alertType: event.alertType ?? AlertType.RED_ALERT,
+          },
           geometry: { type: 'Point', coordinates: center },
         })
       }
